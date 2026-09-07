@@ -17,6 +17,7 @@ import { predictScores } from './helperFunctions/predictOptimalScore';
 import { getBrackets } from './helperFunctions/leagueBrackets';
 import { getBlogPosts, generateParagraph } from './helperFunctions/getBlogPosts';
 import { getLeagueStandings } from './helperFunctions/leagueStandings';
+import { getLeagueAnalytics } from './helperFunctions/leagueAnalytics';
 
 export {
     enableBlog,
@@ -54,4 +55,5 @@ export {
     parseDate,
     getAvatar,
     getTeamFromTeamManagers,
+    getLeagueAnalytics,
 }
