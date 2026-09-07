@@ -1,0 +1,8 @@
+{
+	"name": "grand-park-league",
+	"compatibility_date": "2026-09-07",
+	"assets": {
+		"directory": ".svelte-kit/cloudflare",
+		"not_found_handling": "single-page-application"
+	}
+}

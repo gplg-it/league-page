@@ -1,12 +1,12 @@
-import vercel from '@sveltejs/adapter-vercel';
+import cloudflare from '@sveltejs/adapter-cloudflare';
 import node from '@sveltejs/adapter-node';
 
-const dockerBuild = process.env.DOCKER_BUILD
+const dockerBuild = process.env.DOCKER_BUILD;
 
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
 	kit: {
-		adapter: dockerBuild ? node() : vercel(),
+		adapter: dockerBuild ? node() : cloudflare(),
 	}
 };
 
