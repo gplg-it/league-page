@@ -23,9 +23,16 @@
     }
 
 	onMount(async () => {
-		const res = await fetch('/api/checkVersion', {compress: true})
-		const needUpdate = await res.json();
-		outOfDate = needUpdate;
+		try {
+			const res = await fetch('https://league-page.nmelhado.com/api/checkGlobalVersion');
+			if(res.ok) {
+				const globalVersion = await res.json();
+				const { version } = await import('$lib/version');
+				outOfDate = globalVersion != version;
+			}
+		} catch(e) {
+			// version check is non-critical
+		}
         resize(el?.getBoundingClientRect(), true);
 	})
 
