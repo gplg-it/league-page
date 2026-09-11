@@ -1,12 +1,14 @@
 <!-- __layout.svelte -->
 <script>
 	import { Nav, Footer } from "$lib/components"
+
+	let { children } = $props();
 </script>
 
 <main>
-    <Nav /> <!-- adds the nav (small and large) -->
-  
-    <slot />
+    <Nav />
 
-    <Footer /> <!-- adds the footer -->
+    {@render children()}
+
+    <Footer />
 </main>
