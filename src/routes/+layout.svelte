@@ -4,9 +4,9 @@
 </script>
 
 <main>
-    <Nav /> <!-- adds the nav (small and large) -->
-  
+    <Nav />
+
     <slot />
 
-    <Footer /> <!-- adds the footer -->
+    <Footer />
 </main>
