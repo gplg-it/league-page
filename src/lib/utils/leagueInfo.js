@@ -1,23 +1,221 @@
 /*   STEP 1   */
 export const leagueID = "1399924711089033216";
-export const leagueName = "Grand Park League";
+export const leagueName = "The League 2.0";
 export const dues = 100;
-export const dynasty = true;
+export const dynasty = false;
 export const enableBlog = false;
 
 /*   STEP 2   */
 export const homepageText = `
-  <p>Welcome to the official home of <strong>Grand Park League</strong> — a competitive dynasty fantasy football league on Sleeper.</p>
-  <p>Explore matchups, standings, records, and our advanced analytics dashboard featuring luck analysis, scoring trends, and season-over-season comparisons. Use the navigation above to dive into the full league experience.</p>
-  <p>Visit the <strong>Analytics</strong> tab for deep statistical breakdowns including manager performance metrics, all-play records, lineup efficiency ratings, and luck index measurements that reveal who the schedule has favored — and who it hasn't.</p>
+  <p>Welcome to the official home of <strong>The League 2.0</strong> — a 12-team Redraft Half PPR fantasy football league on Sleeper.</p>
+  <p>Roster format: 1 QB, 2 RB, 2 WR, 1 TE, 1 FLEX — 6 bench, 0 IR. Full redraft each season.</p>
+  <p>Use the navigation above to explore matchups, standings, records, analytics, and detailed manager profiles. The Analytics tab provides advanced statistical breakdowns including luck analysis, scoring trends, and season-over-season comparisons.</p>
 `;
 
 /*   STEP 3   */
-/*
-To populate manager profiles automatically from Sleeper API data,
-run: node scripts/setup-league.mjs
-
-This will fetch all users, rosters, and league history and generate
-the managers array below with display names, avatars, and bios.
-*/
-export const managers = [];
+export const managers = [
+        {
+            "managerID": "720834621427777536",
+            "name": "c3aquino",
+            "location": null,
+            "bio": "Manager of 🏆 🏆 🏆 🏆 in The League 2.0.",
+            "photo": "https://sleepercdn.com/avatars/thumbs/d2c69e5e2e6b3df310a1e6e4cc1426c9",
+            "fantasyStart": null,
+            "favoriteTeam": null,
+            "mode": null,
+            "rival": null,
+            "favoritePlayer": null,
+            "valuePosition": null,
+            "rookieOrVets": null,
+            "philosophy": null,
+            "tradingScale": null,
+            "preferredContact": "Sleeper"
+        },
+        {
+            "managerID": "1136444542695612416",
+            "name": "craigsmooth",
+            "location": null,
+            "bio": "Manager of CRAIG in The League 2.0.",
+            "photo": "https://sleepercdn.com/uploads/90321cfc7bfb6781efeec511fc63cbc9",
+            "fantasyStart": null,
+            "favoriteTeam": null,
+            "mode": null,
+            "rival": null,
+            "favoritePlayer": null,
+            "valuePosition": null,
+            "rookieOrVets": null,
+            "philosophy": null,
+            "tradingScale": null,
+            "preferredContact": "Sleeper"
+        },
+        {
+            "managerID": "872720337966678016",
+            "name": "BWheels87",
+            "location": null,
+            "bio": "Manager of BWheels  in The League 2.0.",
+            "photo": "https://sleepercdn.com/images/v2/avatars/avatar_default_blue.webp",
+            "fantasyStart": null,
+            "favoriteTeam": null,
+            "mode": null,
+            "rival": null,
+            "favoritePlayer": null,
+            "valuePosition": null,
+            "rookieOrVets": null,
+            "philosophy": null,
+            "tradingScale": null,
+            "preferredContact": "Sleeper"
+        },
+        {
+            "managerID": "872724112974475264",
+            "name": "kazzamm",
+            "location": null,
+            "bio": "Manager of Ramez in The League 2.0.",
+            "photo": "https://sleepercdn.com/uploads/1662f934d6753fc5d6ef6894ba5aae98.jpg",
+            "fantasyStart": null,
+            "favoriteTeam": null,
+            "mode": null,
+            "rival": null,
+            "favoritePlayer": null,
+            "valuePosition": null,
+            "rookieOrVets": null,
+            "philosophy": null,
+            "tradingScale": null,
+            "preferredContact": "Sleeper"
+        },
+        {
+            "managerID": "98902433476263936",
+            "name": "BABSLAB",
+            "location": null,
+            "bio": "Manager of The Boys in The League 2.0.",
+            "photo": "https://sleepercdn.com/uploads/545c23455f71b9fb378cbde64986f617.jpg",
+            "fantasyStart": null,
+            "favoriteTeam": null,
+            "mode": null,
+            "rival": null,
+            "favoritePlayer": null,
+            "valuePosition": null,
+            "rookieOrVets": null,
+            "philosophy": null,
+            "tradingScale": null,
+            "preferredContact": "Sleeper"
+        },
+        {
+            "managerID": "1136445199691218944",
+            "name": "jsoliz",
+            "location": null,
+            "bio": "Manager of AJ's Nose Ring in The League 2.0.",
+            "photo": "https://sleepercdn.com/avatars/thumbs/15d7cf259bc30eab8f6120f45f652fb6",
+            "fantasyStart": null,
+            "favoriteTeam": null,
+            "mode": null,
+            "rival": null,
+            "favoritePlayer": null,
+            "valuePosition": null,
+            "rookieOrVets": null,
+            "philosophy": null,
+            "tradingScale": null,
+            "preferredContact": "Sleeper"
+        },
+        {
+            "managerID": "214112107816288256",
+            "name": "minafarag",
+            "location": null,
+            "bio": "Manager of Oil of Olave in The League 2.0.",
+            "photo": "https://sleepercdn.com/avatars/thumbs/f3bc34f7bd9e4376897c1675894eff51",
+            "fantasyStart": null,
+            "favoriteTeam": null,
+            "mode": null,
+            "rival": null,
+            "favoritePlayer": null,
+            "valuePosition": null,
+            "rookieOrVets": null,
+            "philosophy": null,
+            "tradingScale": null,
+            "preferredContact": "Sleeper"
+        },
+        {
+            "managerID": "1136445442637684736",
+            "name": "jimmypineda3",
+            "location": null,
+            "bio": "Manager of House Slaughter in The League 2.0.",
+            "photo": "https://sleepercdn.com/uploads/8dfb5b6be9cd5ef88aac037b396a3a16.jpg",
+            "fantasyStart": null,
+            "favoriteTeam": null,
+            "mode": null,
+            "rival": null,
+            "favoritePlayer": null,
+            "valuePosition": null,
+            "rookieOrVets": null,
+            "philosophy": null,
+            "tradingScale": null,
+            "preferredContact": "Sleeper"
+        },
+        {
+            "managerID": "1136444222846271488",
+            "name": "RaandySavage",
+            "location": null,
+            "bio": "Manager of Raandy in The League 2.0.",
+            "photo": "https://sleepercdn.com/avatars/thumbs/591030715680f5d83c27d425edf95902",
+            "fantasyStart": null,
+            "favoriteTeam": null,
+            "mode": null,
+            "rival": null,
+            "favoritePlayer": null,
+            "valuePosition": null,
+            "rookieOrVets": null,
+            "philosophy": null,
+            "tradingScale": null,
+            "preferredContact": "Sleeper"
+        },
+        {
+            "managerID": "1136445952631685120",
+            "name": "Cicco",
+            "location": null,
+            "bio": "Manager of Cicco in The League 2.0.",
+            "photo": "https://sleepercdn.com/uploads/24ad41fee44e4b4471bb1a5d078ae312.jpg",
+            "fantasyStart": null,
+            "favoriteTeam": null,
+            "mode": null,
+            "rival": null,
+            "favoritePlayer": null,
+            "valuePosition": null,
+            "rookieOrVets": null,
+            "philosophy": null,
+            "tradingScale": null,
+            "preferredContact": "Sleeper"
+        },
+        {
+            "managerID": "1136446055476178944",
+            "name": "armvnd",
+            "location": null,
+            "bio": "Manager of armvnd in The League 2.0.",
+            "photo": "https://sleepercdn.com/uploads/9d8ab90d8b12b8d7cf782e4d1d6c1a2e",
+            "fantasyStart": null,
+            "favoriteTeam": null,
+            "mode": null,
+            "rival": null,
+            "favoritePlayer": null,
+            "valuePosition": null,
+            "rookieOrVets": null,
+            "philosophy": null,
+            "tradingScale": null,
+            "preferredContact": "Sleeper"
+        },
+        {
+            "managerID": "1136445458228457472",
+            "name": "micksitupp",
+            "location": null,
+            "bio": "Manager of DIESEL in The League 2.0.",
+            "photo": "https://sleepercdn.com/uploads/4edf9d75363da378a40348af70fdd7e3.jpg",
+            "fantasyStart": null,
+            "favoriteTeam": null,
+            "mode": null,
+            "rival": null,
+            "favoritePlayer": null,
+            "valuePosition": null,
+            "rookieOrVets": null,
+            "philosophy": null,
+            "tradingScale": null,
+            "preferredContact": "Sleeper"
+        }
+    ];

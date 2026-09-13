@@ -66,7 +66,7 @@ function buildManagerProfiles(seasons) {
             managerID: user.user_id,
             name: user.display_name,
             location: null,
-            bio: `Manager of ${teamName} in the ${league.name || 'Grand Park League'}.`,
+            bio: `Manager of ${teamName} in ${(league.name || 'Grand Park League').trim()}.`,
             photo: avatar ? avatar : '/managers/question.jpg',
             fantasyStart: null,
             favoriteTeam: null,
