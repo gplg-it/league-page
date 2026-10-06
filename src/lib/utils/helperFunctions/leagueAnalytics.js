@@ -106,12 +106,20 @@ export const getLeagueAnalytics = async (refresh = false) => {
 	const matchupInsights = computeMatchupInsights(allMatchups, allSeasons);
 	const scoringTrends = computeScoringTrends(allMatchups, allSeasons);
 	const luckAnalysis = computeLuckAnalysis(allMatchups, allSeasons);
+	const headToHead = computeHeadToHead(allMatchups, allSeasons);
+	const streaksAndMilestones = computeStreaksAndMilestones(allMatchups, allSeasons, rosterSeasonMap);
+	const powerIndex = computePowerIndex(managerAnalytics, luckAnalysis, matchupInsights, rosterSeasonMap);
+	const closeGames = computeCloseGames(allMatchups, allSeasons);
 
 	const analyticsData = {
 		managerAnalytics,
 		matchupInsights,
 		scoringTrends,
 		luckAnalysis,
+		headToHead,
+		streaksAndMilestones,
+		powerIndex,
+		closeGames,
 		allSeasons,
 	};
 
@@ -473,4 +481,252 @@ const analyzeLuck = (luckByRoster, team, opponent, median) => {
 		luckByRoster[rosterID].actualLosses++;
 		if(aboveMedian) luckByRoster[rosterID].unluckyLosses++;
 	}
+}
+
+const computeHeadToHead = (allMatchups, allSeasons) => {
+	const matchupsByWeekYear = {};
+	for(const matchup of allMatchups) {
+		const key = `${matchup.year}-${matchup.week}`;
+		if(!matchupsByWeekYear[key]) matchupsByWeekYear[key] = {};
+		if(!matchupsByWeekYear[key][matchup.matchup_id]) matchupsByWeekYear[key][matchup.matchup_id] = [];
+		matchupsByWeekYear[key][matchup.matchup_id].push(matchup);
+	}
+
+	const h2h = {};
+
+	for(const weekKey in matchupsByWeekYear) {
+		for(const matchupID in matchupsByWeekYear[weekKey]) {
+			const sides = matchupsByWeekYear[weekKey][matchupID];
+			if(sides.length !== 2) continue;
+			const [a, b] = sides;
+			const aPts = a.points || 0;
+			const bPts = b.points || 0;
+			if(aPts <= 0 && bPts <= 0) continue;
+			const year = a.year;
+
+			recordH2H(h2h, a.roster_id, b.roster_id, aPts, bPts, year);
+			recordH2H(h2h, b.roster_id, a.roster_id, bPts, aPts, year);
+		}
+	}
+
+	return h2h;
+}
+
+const recordH2H = (h2h, rosterA, rosterB, ptsFor, ptsAgainst, year) => {
+	if(!h2h[rosterA]) h2h[rosterA] = {};
+	if(!h2h[rosterA][rosterB]) {
+		h2h[rosterA][rosterB] = {
+			allTime: { wins: 0, losses: 0, ties: 0, totalPtsFor: 0, totalPtsAgainst: 0 },
+			bySeason: {},
+		};
+	}
+	const record = h2h[rosterA][rosterB];
+
+	const update = (target) => {
+		target.totalPtsFor += ptsFor;
+		target.totalPtsAgainst += ptsAgainst;
+		if(ptsFor > ptsAgainst) target.wins++;
+		else if(ptsFor < ptsAgainst) target.losses++;
+		else target.ties++;
+	};
+
+	update(record.allTime);
+	if(!record.bySeason[year]) {
+		record.bySeason[year] = { wins: 0, losses: 0, ties: 0, totalPtsFor: 0, totalPtsAgainst: 0 };
+	}
+	update(record.bySeason[year]);
+}
+
+const computeStreaksAndMilestones = (allMatchups, allSeasons, rosterSeasonMap) => {
+	const matchupsByWeekYear = {};
+	for(const matchup of allMatchups) {
+		const key = `${matchup.year}-${matchup.week}`;
+		if(!matchupsByWeekYear[key]) matchupsByWeekYear[key] = {};
+		if(!matchupsByWeekYear[key][matchup.matchup_id]) matchupsByWeekYear[key][matchup.matchup_id] = [];
+		matchupsByWeekYear[key][matchup.matchup_id].push(matchup);
+	}
+
+	const sortedWeeks = Object.keys(matchupsByWeekYear).sort((a, b) => {
+		const [yA, wA] = a.split('-').map(Number);
+		const [yB, wB] = b.split('-').map(Number);
+		return yA !== yB ? yA - yB : wA - wB;
+	});
+
+	const currentStreaks = {};
+	const bestWinStreaks = {};
+	const bestLossStreaks = {};
+	const highScores = [];
+	const blowouts = [];
+	const nailbiters = [];
+
+	for(const weekKey of sortedWeeks) {
+		for(const matchupID in matchupsByWeekYear[weekKey]) {
+			const sides = matchupsByWeekYear[weekKey][matchupID];
+			if(sides.length !== 2) continue;
+			const [a, b] = sides;
+			const aPts = a.points || 0;
+			const bPts = b.points || 0;
+			if(aPts <= 0 && bPts <= 0) continue;
+
+			const margin = Math.abs(aPts - bPts);
+			const winner = aPts > bPts ? a : (bPts > aPts ? b : null);
+			const loser = aPts > bPts ? b : (bPts > aPts ? a : null);
+
+			if(aPts > 0) {
+				highScores.push({ rosterID: a.roster_id, points: round(aPts), year: a.year, week: a.week });
+			}
+			if(bPts > 0) {
+				highScores.push({ rosterID: b.roster_id, points: round(bPts), year: b.year, week: b.week });
+			}
+
+			if(winner && loser) {
+				blowouts.push({
+					winnerID: winner.roster_id, loserID: loser.roster_id,
+					winnerPts: round(winner.points), loserPts: round(loser.points),
+					margin: round(margin), year: winner.year, week: winner.week,
+				});
+				nailbiters.push({
+					winnerID: winner.roster_id, loserID: loser.roster_id,
+					winnerPts: round(winner.points), loserPts: round(loser.points),
+					margin: round(margin), year: winner.year, week: winner.week,
+				});
+			}
+
+			for(const side of [a, b]) {
+				const rid = side.roster_id;
+				const pts = side.points || 0;
+				const oppPts = side === a ? bPts : aPts;
+				if(pts <= 0) continue;
+
+				if(!currentStreaks[rid]) currentStreaks[rid] = { type: null, count: 0 };
+				if(!bestWinStreaks[rid]) bestWinStreaks[rid] = 0;
+				if(!bestLossStreaks[rid]) bestLossStreaks[rid] = 0;
+
+				const won = pts > oppPts;
+				const lost = pts < oppPts;
+
+				if(won) {
+					if(currentStreaks[rid].type === 'W') {
+						currentStreaks[rid].count++;
+					} else {
+						currentStreaks[rid] = { type: 'W', count: 1 };
+					}
+					bestWinStreaks[rid] = Math.max(bestWinStreaks[rid], currentStreaks[rid].count);
+				} else if(lost) {
+					if(currentStreaks[rid].type === 'L') {
+						currentStreaks[rid].count++;
+					} else {
+						currentStreaks[rid] = { type: 'L', count: 1 };
+					}
+					bestLossStreaks[rid] = Math.max(bestLossStreaks[rid], currentStreaks[rid].count);
+				} else {
+					currentStreaks[rid] = { type: null, count: 0 };
+				}
+			}
+		}
+	}
+
+	highScores.sort((a, b) => b.points - a.points);
+	blowouts.sort((a, b) => b.margin - a.margin);
+	nailbiters.sort((a, b) => a.margin - b.margin);
+
+	const milestones = {};
+	for(const rid in bestWinStreaks) {
+		milestones[rid] = {
+			bestWinStreak: bestWinStreaks[rid],
+			bestLossStreak: bestLossStreaks[rid] || 0,
+			currentStreak: currentStreaks[rid] || { type: null, count: 0 },
+		};
+	}
+
+	return {
+		milestones,
+		highScores: highScores.slice(0, 25),
+		blowouts: blowouts.slice(0, 15),
+		nailbiters: nailbiters.slice(0, 15),
+	};
+}
+
+const computePowerIndex = (managerAnalytics, luckAnalysis, matchupInsights, rosterSeasonMap) => {
+	const powerIndex = {};
+	const allPlayRecords = matchupInsights?.allPlayRecords || {};
+
+	for(const rosterID in managerAnalytics) {
+		const mgr = managerAnalytics[rosterID];
+		const luck = luckAnalysis[rosterID] || {};
+		const allPlay = allPlayRecords[rosterID] || {};
+
+		const winPct = mgr.gamesPlayed > 0 ? mgr.wins / mgr.gamesPlayed : 0;
+		const allPlayPct = (allPlay.winPct || 0) / 100;
+		const consistencyScore = (mgr.consistency || 0) / 100;
+		const efficiencyScore = (mgr.efficiency || 0) / 100;
+
+		const dominance = round(
+			(winPct * 35) +
+			(allPlayPct * 30) +
+			(consistencyScore * 20) +
+			(efficiencyScore * 15)
+		);
+
+		powerIndex[rosterID] = {
+			rosterID,
+			dominance,
+			winPct: round(winPct * 100),
+			allPlayPct: round(allPlayPct * 100),
+			consistency: mgr.consistency,
+			efficiency: mgr.efficiency,
+			avgPoints: mgr.avgPoints,
+			totalPoints: mgr.totalPoints,
+			gamesPlayed: mgr.gamesPlayed,
+		};
+	}
+
+	return powerIndex;
+}
+
+const computeCloseGames = (allMatchups, allSeasons) => {
+	const matchupsByWeekYear = {};
+	for(const matchup of allMatchups) {
+		const key = `${matchup.year}-${matchup.week}`;
+		if(!matchupsByWeekYear[key]) matchupsByWeekYear[key] = {};
+		if(!matchupsByWeekYear[key][matchup.matchup_id]) matchupsByWeekYear[key][matchup.matchup_id] = [];
+		matchupsByWeekYear[key][matchup.matchup_id].push(matchup);
+	}
+
+	const rosterCloseGames = {};
+
+	for(const weekKey in matchupsByWeekYear) {
+		for(const matchupID in matchupsByWeekYear[weekKey]) {
+			const sides = matchupsByWeekYear[weekKey][matchupID];
+			if(sides.length !== 2) continue;
+			const [a, b] = sides;
+			const aPts = a.points || 0;
+			const bPts = b.points || 0;
+			if(aPts <= 0 && bPts <= 0) continue;
+
+			const margin = Math.abs(aPts - bPts);
+			const isClose = margin <= 5;
+			const isBlowout = margin >= 40;
+
+			for(const side of [a, b]) {
+				const rid = side.roster_id;
+				if(!rosterCloseGames[rid]) {
+					rosterCloseGames[rid] = { closeWins: 0, closeLosses: 0, blowoutWins: 0, blowoutLosses: 0, totalGames: 0 };
+				}
+				rosterCloseGames[rid].totalGames++;
+				const pts = side === a ? aPts : bPts;
+				const oppPts = side === a ? bPts : aPts;
+				if(isClose) {
+					if(pts > oppPts) rosterCloseGames[rid].closeWins++;
+					else if(pts < oppPts) rosterCloseGames[rid].closeLosses++;
+				}
+				if(isBlowout) {
+					if(pts > oppPts) rosterCloseGames[rid].blowoutWins++;
+					else if(pts < oppPts) rosterCloseGames[rid].blowoutLosses++;
+				}
+			}
+		}
+	}
+
+	return rosterCloseGames;
 }

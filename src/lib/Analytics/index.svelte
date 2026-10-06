@@ -4,6 +4,10 @@
     import LuckAnalysis from './LuckAnalysis.svelte';
     import ScoringTrends from './ScoringTrends.svelte';
     import SeasonComparison from './SeasonComparison.svelte';
+    import HeadToHead from './HeadToHead.svelte';
+    import StreaksAndMilestones from './StreaksAndMilestones.svelte';
+    import PowerIndex from './PowerIndex.svelte';
+    import MediaWall from './MediaWall.svelte';
     import { getLeagueAnalytics } from '$lib/utils/helper';
 
     let {analyticsData, leagueTeamManagers} = $props();
@@ -12,6 +16,10 @@
     let matchupInsights = $state();
     let scoringTrends = $state();
     let luckAnalysis = $state();
+    let headToHead = $state();
+    let streaksAndMilestones = $state();
+    let powerIndex = $state();
+    let closeGames = $state();
     let allSeasons = $state();
     let stale = $state(false);
 
@@ -25,6 +33,10 @@
         matchupInsights = data.matchupInsights;
         scoringTrends = data.scoringTrends;
         luckAnalysis = data.luckAnalysis;
+        headToHead = data.headToHead;
+        streaksAndMilestones = data.streaksAndMilestones;
+        powerIndex = data.powerIndex;
+        closeGames = data.closeGames;
         allSeasons = data.allSeasons;
     };
 
@@ -39,6 +51,17 @@
     });
 
     let display = $state("manager");
+
+    const tabs = [
+        { key: 'manager', label: 'Performance' },
+        { key: 'power', label: 'Power Index' },
+        { key: 'h2h', label: 'Head-to-Head' },
+        { key: 'streaks', label: 'Records' },
+        { key: 'luck', label: 'Luck Analysis' },
+        { key: 'trends', label: 'Scoring Trends' },
+        { key: 'comparison', label: 'Seasons' },
+        { key: 'media', label: 'Memory Wall' },
+    ];
 </script>
 
 <style>
@@ -67,21 +90,45 @@
         margin: 1em 0 0;
     }
 
+    .tabRow {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 4px;
+        margin: 1em 0 0;
+    }
+
+    .tabBtn {
+        padding: 8px 14px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.8em;
+        background: var(--fff);
+        color: var(--g333);
+        white-space: nowrap;
+    }
+
+    .tabBtn.active {
+        background: #920505;
+        color: #fff;
+        border-color: #920505;
+    }
+
+    .tabBtn:hover:not(.active) {
+        border-color: #920505;
+        color: #920505;
+    }
+
     .empty {
         margin: 10em 0 4em;
         text-align: center;
     }
 
     @media (max-width: 540px) {
-        :global(.buttonHolder .selectionButtons) {
-            font-size: 0.6em;
-        }
-    }
-
-    @media (max-width: 415px) {
-        :global(.buttonHolder .selectionButtons) {
-            font-size: 0.5em;
-            padding: 0 6px;
+        .tabBtn {
+            font-size: 0.7em;
+            padding: 6px 10px;
         }
     }
 </style>
@@ -91,32 +138,35 @@
     <p class="subtitle">Advanced statistical queries and performance analysis</p>
 
     <div class="buttonHolder">
-        <Group variant="outlined">
-            <Button class="selectionButtons" onclick={() => display = "manager"} variant="{display == "manager" ? "raised" : "outlined"}">
-                <Label>Performance</Label>
-            </Button>
-            <Button class="selectionButtons" onclick={() => display = "luck"} variant="{display == "luck" ? "raised" : "outlined"}">
-                <Label>Luck Analysis</Label>
-            </Button>
-            <Button class="selectionButtons" onclick={() => display = "trends"} variant="{display == "trends" ? "raised" : "outlined"}">
-                <Label>Scoring Trends</Label>
-            </Button>
-            <Button class="selectionButtons" onclick={() => display = "comparison"} variant="{display == "comparison" ? "raised" : "outlined"}">
-                <Label>Season Comparison</Label>
-            </Button>
-        </Group>
+        <div class="tabRow">
+            {#each tabs as tab}
+                <button class="tabBtn" class:active={display === tab.key} onclick={() => display = tab.key}>
+                    {tab.label}
+                </button>
+            {/each}
+        </div>
     </div>
 
     {#if managerAnalytics && Object.keys(managerAnalytics).length > 0}
         {#if display === "manager"}
             <ManagerStats {managerAnalytics} {leagueTeamManagers} {luckAnalysis} />
+        {:else if display === "power"}
+            <PowerIndex {powerIndex} {closeGames} {leagueTeamManagers} />
+        {:else if display === "h2h"}
+            <HeadToHead {headToHead} {leagueTeamManagers} {allSeasons} />
+        {:else if display === "streaks"}
+            <StreaksAndMilestones {streaksAndMilestones} {leagueTeamManagers} />
         {:else if display === "luck"}
             <LuckAnalysis {luckAnalysis} {leagueTeamManagers} allPlayRecords={matchupInsights?.allPlayRecords} />
         {:else if display === "trends"}
             <ScoringTrends {scoringTrends} {leagueTeamManagers} {allSeasons} />
         {:else if display === "comparison"}
             <SeasonComparison {managerAnalytics} {leagueTeamManagers} {allSeasons} />
+        {:else if display === "media"}
+            <MediaWall />
         {/if}
+    {:else if display === "media"}
+        <MediaWall />
     {:else}
         <p class="empty">No analytics data available <i>yet</i>... Check back after the season starts.</p>
     {/if}
