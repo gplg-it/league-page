@@ -6,10 +6,16 @@ import { waitForAll } from './multiPromise';
 import { get } from 'svelte/store';
 import {standingsStore} from '$lib/stores';
 import { round } from './universalFunctions';
+import { getCached, setCached } from './cache';
 
 export const getLeagueStandings = async () => {
 	if(get(standingsStore).standingsInfo) {
 		return get(standingsStore);
+	}
+	const cached = getCached('standings');
+	if(cached) {
+		standingsStore.update(() => cached);
+		return cached;
 	}
 
 	const [nflState, leagueData, rostersData] = await waitForAll(
@@ -89,6 +95,7 @@ export const getLeagueStandings = async () => {
 	}
 	
 	standingsStore.update(() => response);
+	setCached('standings', response);
 
 	return response;
 }

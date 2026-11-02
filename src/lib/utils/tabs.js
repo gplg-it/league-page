@@ -26,6 +26,12 @@ export const tabs = [
         key: 'blog',
     },
     {
+        icon: 'query_stats',
+        label: 'Analytics',
+        dest: '/analytics',
+        key: 'analytics',
+    },
+    {
         icon: 'view_comfy',
         label: 'League Info',
         nest: true,

@@ -4,10 +4,16 @@ import { teamManagersStore } from '$lib/stores';
 import { waitForAll } from './multiPromise';
 import { getManagers, getTeamData } from './universalFunctions';
 import { getLeagueData } from './leagueData';
+import { getCached, setCached } from './cache';
 
 export const getLeagueTeamManagers = async () => {
     if(get(teamManagersStore) && get(teamManagersStore).currentSeason) {
 		return get(teamManagersStore);
+	}
+	const cached = getCached('teamManagers');
+	if(cached) {
+		teamManagersStore.update(() => cached);
+		return cached;
 	}
     let currentLeagueID = leagueID;
 	let teamManagersMap = {};
@@ -53,6 +59,7 @@ export const getLeagueTeamManagers = async () => {
         users: finalUsers,
     }
     teamManagersStore.update(() => response);
+    setCached('teamManagers', response);
     return response;
 }
 

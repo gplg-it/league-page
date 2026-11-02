@@ -23,9 +23,14 @@
     }
 
 	onMount(async () => {
-		const res = await fetch('/api/checkVersion', {compress: true})
-		const needUpdate = await res.json();
-		outOfDate = needUpdate;
+		try {
+			const res = await fetch('/api/checkVersion', {compress: true});
+			if(res.ok) {
+				outOfDate = await res.json();
+			}
+		} catch(e) {
+			// version check is non-critical
+		}
         resize(el?.getBoundingClientRect(), true);
 	})
 
