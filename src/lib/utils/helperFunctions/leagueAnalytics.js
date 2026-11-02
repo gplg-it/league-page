@@ -7,19 +7,18 @@ import { waitForAll } from './multiPromise';
 import { get } from 'svelte/store';
 import { analyticsStore } from '$lib/stores';
 import { round } from './universalFunctions';
-import { browser } from '$app/environment';
+import { getCached, setCached } from './cache';
 
 export const getLeagueAnalytics = async (refresh = false) => {
 	if(get(analyticsStore).managerAnalytics) {
 		return get(analyticsStore);
 	}
 
-	if(!refresh && browser) {
-		let localAnalytics = JSON.parse(localStorage.getItem("analytics"));
-		if(localAnalytics && localAnalytics.managerAnalytics) {
-			localAnalytics.stale = true;
-			analyticsStore.update(() => localAnalytics);
-			return localAnalytics;
+	if(!refresh) {
+		const cached = getCached('analytics');
+		if(cached && cached.managerAnalytics) {
+			analyticsStore.update(() => cached);
+			return cached;
 		}
 	}
 
@@ -123,10 +122,8 @@ export const getLeagueAnalytics = async (refresh = false) => {
 		allSeasons,
 	};
 
-	if(browser) {
-		localStorage.setItem("analytics", JSON.stringify(analyticsData));
-		analyticsStore.update(() => analyticsData);
-	}
+	setCached('analytics', analyticsData);
+	analyticsStore.update(() => analyticsData);
 
 	return analyticsData;
 }
