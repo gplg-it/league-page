@@ -20,6 +20,7 @@ import Posts from './BlogPosts/Posts.svelte';
 import Standings from './Standings/index.svelte';
 import Analytics from './Analytics/index.svelte';
 import WeeklyRoast from './WeeklyRoast/index.svelte';
+import TradeAnalysis from './TradeAnalysis/index.svelte';
 
 export {
     Nav,
@@ -44,4 +45,5 @@ export {
     Standings,
     Analytics,
     WeeklyRoast,
+    TradeAnalysis,
 };

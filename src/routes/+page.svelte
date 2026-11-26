@@ -433,58 +433,6 @@
 		padding: 4em 1.5em;
 	}
 
-	.roastSection :global(.roastContainer) {
-		max-width: 900px;
-		margin: 0 auto;
-	}
-
-	.roastSection :global(.roastTitle) {
-		color: #fff;
-	}
-
-	.roastSection :global(.roastSubtitle) {
-		color: rgba(255,255,255,0.4);
-	}
-
-	.roastSection :global(.roastCard) {
-		background: rgba(255,255,255,0.03);
-		border-color: rgba(255,255,255,0.06);
-	}
-
-	.roastSection :global(.roastCard:hover) {
-		background: rgba(255,255,255,0.06);
-		box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-	}
-
-	.roastSection :global(.roastName) {
-		color: #fff;
-	}
-
-	.roastSection :global(.roastLine) {
-		color: rgba(255,255,255,0.5);
-	}
-
-	.roastSection :global(.roastRecord) {
-		background: rgba(255,255,255,0.08);
-		color: rgba(255,255,255,0.6);
-	}
-
-	.roastSection :global(.roastStats) {
-		border-top-color: rgba(255,255,255,0.08);
-	}
-
-	.roastSection :global(.roastStatVal) {
-		color: #c9a84c;
-	}
-
-	.roastSection :global(.roastStatLabel) {
-		color: rgba(255,255,255,0.3);
-	}
-
-	.roastSection :global(.loadCenter) {
-		color: rgba(255,255,255,0.4);
-	}
-
 	/* ── Content sections (light) ── */
 	.lightSection {
 		background: var(--fff);
@@ -787,7 +735,7 @@
 		<div class="sectionInner">
 			<div class="accentBar"></div>
 			<h2 class="sectionTitle">The Roast Report</h2>
-			<p class="sectionSub">An algorithmically generated assessment of how terrible everyone is.</p>
+			<p class="sectionSub">A fresh, fact-checked character assassination every week, built from last week's box scores.</p>
 
 			{#if WeeklyRoast}
 				<WeeklyRoast />

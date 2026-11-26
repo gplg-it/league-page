@@ -18,6 +18,7 @@ import { getBrackets } from './helperFunctions/leagueBrackets';
 import { getBlogPosts, generateParagraph } from './helperFunctions/getBlogPosts';
 import { getLeagueStandings } from './helperFunctions/leagueStandings';
 import { getLeagueAnalytics } from './helperFunctions/leagueAnalytics';
+import { evaluateAllTrades, evaluateHypotheticalTrade } from './helperFunctions/tradeEvaluator';
 
 export {
     enableBlog,
@@ -57,4 +58,6 @@ export {
     getTeamFromTeamManagers,
     getTeamFromManagerID,
     getLeagueAnalytics,
+    evaluateAllTrades,
+    evaluateHypotheticalTrade,
 }

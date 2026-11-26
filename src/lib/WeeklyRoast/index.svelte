@@ -1,373 +1,655 @@
 <script>
-	import { getLeagueTeamManagers, waitForAll, managers } from '$lib/utils/helper';
-	import { getLeagueAnalytics } from '$lib/utils/helperFunctions/leagueAnalytics';
-	import LinearProgress from '@smui/linear-progress';
 	import { onMount } from 'svelte';
-	import { getTeamFromManagerID } from '$lib/utils/helperFunctions/universalFunctions';
+	import LinearProgress from '@smui/linear-progress';
+	import { loadPlayers, managers } from '$lib/utils/helper';
+	import { loadWeeklyRoastData } from '$lib/utils/helperFunctions/weeklyRoastData';
+	import { buildRoastWeek, buildHistory, availableWeeks, fmt } from '$lib/utils/helperFunctions/weeklyRoastEngine';
 
 	let loading = $state(true);
-	let roasts = $state([]);
-	let weekLabel = $state('');
-	let expandedRoast = $state(null);
+	let error = $state(null);
+	let data = $state.raw(null);
+	let players = $state.raw({});
+	let week = $state(null);
+	let avatarCaps = $state({});
+	let avatarFailed = $state({});
 
-	const insults = {
-		terrible: [
-			"put up a score that belongs in a golf tournament, not a football league",
-			"scored fewer points than a bye week",
-			"got beaten so badly even their bench was embarrassed",
-			"played like they drafted their team at a yard sale",
-			"apparently thought this was a 'tank for picks' league",
-			"needs to check if their roster is still alive",
-			"put together a lineup that a blindfolded monkey could've beaten",
-			"scored so low their opponents thought it was a scrimmage",
-		],
-		blowoutLoss: [
-			"got absolutely baptized",
-			"suffered a loss so bad their grandkids will feel it",
-			"got sent to the shadow realm",
-			"was spotted in the ER after that beating",
-			"had their franchise rights revoked after that performance",
-			"should file a police report for that robbery",
-			"got violated in ways that shouldn't be legal",
-		],
-		blowoutWin: [
-			"didn't just win, they committed a felony on the scoreboard",
-			"put up a score that should require a permit",
-			"absolutely destroyed the concept of fair competition",
-			"went full Thanos on their opponent this week",
-			"won so decisively the Geneva Convention needs updating",
-		],
-		lucky: [
-			"won by luck alone — their guardian angel is working overtime",
-			"survived by the thinnest of margins, like their fantasy knowledge",
-			"scraped by with a win that was 100% undeserved",
-			"won a game they had absolutely no business winning",
-			"got bailed out harder than a Wall Street bank in 2008",
-		],
-		unlucky: [
-			"scored enough to beat 10 of 12 teams but played the one team they couldn't",
-			"got absolutely jobbed by the schedule gods",
-			"put up a solid score that meant nothing against their opponent's explosion",
-			"deserved better than what the fantasy gods delivered",
-		],
-		streak: [
-			"is on a winning streak longer than their attention span",
-			"keeps stacking Ws like they're on clearance",
-			"hasn't lost in so long they forgot what it feels like",
-		],
-		losingStreak: [
-			"is in a freefall that makes the stock market look stable",
-			"hasn't won in so long their team filed for unemployment",
-			"is building a losing streak that could qualify as a natural disaster",
-			"is on a losing streak longer than a CVS receipt",
-		],
-		mediocre: [
-			"continues to be the human embodiment of room temperature",
-			"is about as exciting as watching paint dry on a beige wall",
-			"exists in the most forgettable middle ground possible",
-			"put up a score that screams 'I didn't even look at my lineup'",
-		],
+	const weeks = $derived(data ? availableWeeks(data) : []);
+	const roasts = $derived(data && week ? buildRoastWeek(data, players, week, managers) : []);
+	const history = $derived(data ? buildHistory(data) : null);
+	const weekIdx = $derived(weeks.indexOf(week));
+	const hasProjections = $derived(data && String(data.nflState.league_season) === String(data.roastSeason?.year));
+	const nextWeekPending = $derived(
+		data?.roastSeason && week === weeks[weeks.length - 1]
+		&& String(data.nflState.league_season) === String(data.roastSeason.year)
+		&& data.nflState.season_type === 'regular'
+	);
+
+	const ordinal = (n) => {
+		if (n == null) return '—';
+		const s = ['th', 'st', 'nd', 'rd'];
+		const v = n % 100;
+		return n + (s[(v - 20) % 10] || s[v] || s[0]);
+	};
+	const recordText = (r) => `${r.w}-${r.l}${r.t ? `-${r.t}` : ''}`;
+	const slotLabel = (s) => ({ FLEX: 'FLX', SUPER_FLEX: 'SF', WRRB_FLEX: 'W/R', REC_FLEX: 'W/T', DEF: 'DEF' }[s] || s);
+
+	// Never stretch an avatar past its native resolution (accounting for screen density).
+	const onAvatarLoad = (id, e) => {
+		const img = e.currentTarget;
+		const dpr = Math.min(window.devicePixelRatio || 1, 2);
+		avatarCaps[id] = Math.floor(img.naturalWidth / dpr);
+	};
+	const onAvatarError = (m, e) => {
+		const img = e.currentTarget;
+		if (m.avatarFallback && img.src !== m.avatarFallback) {
+			img.src = m.avatarFallback;
+		} else {
+			avatarFailed[m.managerID] = true;
+		}
 	};
 
-	const pickRandom = (arr) => arr[Math.floor(Math.random() * arr.length)];
-
-	const generateRoasts = (analytics, leagueTeamManagers) => {
-		if (!analytics?.managerAnalytics || !analytics?.streaksAndMilestones) return [];
-
-		const { managerAnalytics, streaksAndMilestones, luckAnalysis, closeGames, allSeasons } = analytics;
-		const latestYear = allSeasons?.length > 0 ? Math.max(...allSeasons.map(s => s.year)) : new Date().getFullYear();
-		weekLabel = `${latestYear} Season Roast Report`;
-
-		const generatedRoasts = [];
-
-		for (const mID in managerAnalytics) {
-			const mgr = managerAnalytics[mID];
-			const luck = luckAnalysis?.[mID] || {};
-			const milestones = streaksAndMilestones?.milestones?.[mID] || {};
-			const close = closeGames?.[mID] || {};
-			const team = getTeamFromManagerID(leagueTeamManagers, mID);
-			const name = team?.name || `Manager ${mID}`;
-
-			const roastLines = [];
-			let severity = 'neutral';
-			let emoji = '🏈';
-
-			if (mgr.winRate < 35) {
-				roastLines.push(`${name} ${pickRandom(insults.terrible)}.`);
-				severity = 'terrible';
-				emoji = '💀';
-			} else if (mgr.winRate < 45) {
-				roastLines.push(`${name} ${pickRandom(insults.mediocre)}.`);
-				severity = 'bad';
-				emoji = '😴';
-			}
-
-			if (milestones.currentStreak?.type === 'W' && milestones.currentStreak.count >= 3) {
-				roastLines.push(`Currently ${pickRandom(insults.streak)} (${milestones.currentStreak.count}W).`);
-				severity = 'hot';
-				emoji = '🔥';
-			} else if (milestones.currentStreak?.type === 'L' && milestones.currentStreak.count >= 3) {
-				roastLines.push(`${pickRandom(insults.losingStreak)} (${milestones.currentStreak.count}L).`);
-				severity = 'terrible';
-				emoji = '🪦';
-			}
-
-			if (luck.luckIndex > 15) {
-				roastLines.push(`${pickRandom(insults.lucky)}`);
-			} else if (luck.luckIndex < -15) {
-				roastLines.push(`${pickRandom(insults.unlucky)}`);
-			}
-
-			if (close.closeLosses > close.closeWins && close.closeLosses >= 2) {
-				roastLines.push(`Has lost ${close.closeLosses} close games — absolutely cursed in clutch moments.`);
-			}
-
-			if (mgr.worstWeek < 60) {
-				roastLines.push(`Posted a ${mgr.worstWeek}-point week at some point. That's not fantasy football, that's fantasy checkers.`);
-			}
-
-			if (mgr.bestWeek > 170) {
-				roastLines.push(`Dropped a ${mgr.bestWeek}-point bomb once. ${pickRandom(insults.blowoutWin)}.`);
-				if (severity === 'neutral') { severity = 'elite'; emoji = '👑'; }
-			}
-
-			if (mgr.winRate > 60) {
-				if (roastLines.length === 0) {
-					roastLines.push(`${name} keeps winning and nobody likes it. ${mgr.winRate}% win rate is just showing off at this point.`);
-				}
-				if (severity === 'neutral') { severity = 'elite'; emoji = '👑'; }
-			}
-
-			if (roastLines.length === 0) {
-				roastLines.push(`${name} ${pickRandom(insults.mediocre)}.`);
-				severity = 'meh';
-				emoji = '🥱';
-			}
-
-			generatedRoasts.push({
-				managerID: mID,
-				name,
-				roastLines,
-				severity,
-				emoji,
-				stats: {
-					winRate: mgr.winRate,
-					avgPoints: mgr.avgPoints,
-					consistency: mgr.consistency,
-					bestWeek: mgr.bestWeek,
-					worstWeek: mgr.worstWeek,
-					wins: mgr.wins,
-					losses: mgr.losses,
-				},
-			});
+	const cellTitle = (y, cell) => {
+		if (!cell) {
+			return history && y < history.sleeperRange[0]
+				? `${y} (Yahoo): results not imported yet`
+				: `${y}: no season on record for this manager`;
 		}
-
-		generatedRoasts.sort((a, b) => {
-			const order = { terrible: 0, bad: 1, meh: 2, neutral: 3, hot: 4, elite: 5 };
-			return (order[a.severity] ?? 3) - (order[b.severity] ?? 3);
-		});
-
-		return generatedRoasts;
+		const base = `${y} (${cell.platform === 'yahoo' ? 'Yahoo' : 'Sleeper'}): ${cell.wins}-${cell.losses}${cell.ties ? `-${cell.ties}` : ''}, ${fmt(cell.fpts)} pts`;
+		const finish = cell.rank ? `, ${ordinal(cell.rank)} by record` : '';
+		return `${base}${finish}${cell.champion ? ', champion' : ''}${cell.inProgress ? ' (in progress)' : ''}`;
 	};
 
 	onMount(async () => {
-		const [analytics, leagueTeamManagers] = await waitForAll(
-			getLeagueAnalytics(),
-			getLeagueTeamManagers(),
-		);
-		roasts = generateRoasts(analytics, leagueTeamManagers);
+		try {
+			const [d, p] = await Promise.all([
+				loadWeeklyRoastData(),
+				loadPlayers(null).catch(() => ({ players: {} })),
+			]);
+			players = p?.players || {};
+			data = d;
+			const ws = availableWeeks(d);
+			week = ws[ws.length - 1] ?? null;
+		} catch (e) {
+			error = e?.message || 'Unknown error';
+		}
 		loading = false;
 	});
 </script>
 
-<style>
-	.roastContainer {
-		max-width: 900px;
-		margin: 0 auto;
-		padding: 0 1em;
-	}
-
-	.roastHeader {
-		text-align: center;
-		margin-bottom: 2em;
-	}
-
-	.roastTitle {
-		font-size: 1.8em;
-		font-weight: 900;
-		color: var(--g333);
-		margin: 0 0 0.3em;
-		text-transform: uppercase;
-		letter-spacing: 1px;
-	}
-
-	.roastSubtitle {
-		font-size: 0.85em;
-		color: var(--g999);
-		font-style: italic;
-	}
-
-	.roastCard {
-		background: var(--fff);
-		border: 1px solid var(--eee);
-		border-left: 4px solid var(--g999);
-		border-radius: 0 8px 8px 0;
-		padding: 1.2em 1.5em;
-		margin-bottom: 12px;
-		cursor: pointer;
-		transition: all 0.25s ease;
-		position: relative;
-		overflow: hidden;
-	}
-
-	.roastCard:hover {
-		transform: translateX(4px);
-		box-shadow: 0 4px 16px rgba(0,0,0,0.08);
-	}
-
-	.roastCard.terrible { border-left-color: #920505; }
-	.roastCard.bad { border-left-color: #d97706; }
-	.roastCard.meh { border-left-color: #9ca3af; }
-	.roastCard.hot { border-left-color: #f59e0b; }
-	.roastCard.elite { border-left-color: #c9a84c; }
-
-	.roastCard::after {
-		content: '';
-		position: absolute;
-		top: 0;
-		right: 0;
-		width: 60px;
-		height: 100%;
-		pointer-events: none;
-	}
-
-	.roastCard.terrible::after { background: linear-gradient(90deg, transparent, rgba(146,5,5,0.03)); }
-	.roastCard.elite::after { background: linear-gradient(90deg, transparent, rgba(201,168,76,0.05)); }
-
-	.roastCardHeader {
-		display: flex;
-		align-items: center;
-		gap: 12px;
-		margin-bottom: 0.6em;
-	}
-
-	.roastEmoji {
-		font-size: 1.6em;
-		line-height: 1;
-	}
-
-	.roastName {
-		font-size: 1.1em;
-		font-weight: 700;
-		color: var(--g333);
-		flex: 1;
-	}
-
-	.roastRecord {
-		font-size: 0.75em;
-		color: var(--g555);
-		font-weight: 600;
-		font-variant-numeric: tabular-nums;
-		background: var(--f3f3f3);
-		padding: 3px 10px;
-		border-radius: 12px;
-	}
-
-	.roastLine {
-		font-size: 0.88em;
-		color: var(--g555);
-		line-height: 1.6;
-		margin: 0.3em 0;
-	}
-
-	.roastStats {
-		display: grid;
-		grid-template-columns: repeat(4, 1fr);
-		gap: 8px;
-		margin-top: 1em;
-		padding-top: 1em;
-		border-top: 1px solid var(--eee);
-	}
-
-	.roastStat {
-		text-align: center;
-	}
-
-	.roastStatVal {
-		font-size: 1.1em;
-		font-weight: 800;
-		color: #920505;
-		font-variant-numeric: tabular-nums;
-	}
-
-	.roastStatLabel {
-		font-size: 0.65em;
-		color: var(--g999);
-		text-transform: uppercase;
-		letter-spacing: 0.5px;
-		margin-top: 2px;
-	}
-
-	.loadCenter {
-		text-align: center;
-		padding: 3em 1em;
-		color: var(--g999);
-	}
-
-	@media (max-width: 540px) {
-		.roastTitle { font-size: 1.3em; }
-		.roastStats { grid-template-columns: repeat(2, 1fr); }
-		.roastCard { padding: 1em; }
-	}
-</style>
-
-<div class="roastContainer">
+<div class="roast">
 	{#if loading}
-		<div class="loadCenter">
-			<p>Generating roasts...</p>
+		<div class="state">
+			<p>Reviewing the tape…</p>
 			<LinearProgress indeterminate />
 		</div>
+	{:else if error}
+		<div class="state">The roast generator tripped over its own feet: {error}</div>
+	{:else if !data?.roastSeason || !week}
+		<div class="state">No completed weeks yet. Everyone is undefeated and equally unqualified.</div>
 	{:else}
-		<div class="roastHeader">
-			<h2 class="roastTitle">{weekLabel}</h2>
-			<p class="roastSubtitle">No feelings were spared in the making of this report.</p>
-		</div>
+		<header class="bar">
+			<div class="weekNav">
+				<button class="navBtn" aria-label="Previous week" disabled={weekIdx <= 0} onclick={() => (week = weeks[weekIdx - 1])}>‹</button>
+				<label class="weekPick">
+					<span class="sr">Week</span>
+					<select bind:value={week}>
+						{#each weeks as w}
+							<option value={w}>Week {w}</option>
+						{/each}
+					</select>
+				</label>
+				<button class="navBtn" aria-label="Next week" disabled={weekIdx >= weeks.length - 1} onclick={() => (week = weeks[weekIdx + 1])}>›</button>
+				<span class="season">{data.roastSeason.year} season</span>
+			</div>
+			<p class="meta">
+				Built from the final Week {week} box scores{hasProjections ? ' and Sleeper projections' : ''}. Ranked from most humiliated to least.
+				{#if nextWeekPending}Week {week + 1} is added once its games are final.{/if}
+			</p>
+		</header>
 
-		{#each roasts as roast}
-			<div
-				class="roastCard {roast.severity}"
-				onclick={() => expandedRoast = expandedRoast === roast.managerID ? null : roast.managerID}
-			>
-				<div class="roastCardHeader">
-					<span class="roastEmoji">{roast.emoji}</span>
-					<span class="roastName">{roast.name}</span>
-					<span class="roastRecord">{roast.stats.wins}W-{roast.stats.losses}L</span>
-				</div>
-				{#each roast.roastLines as line}
-					<p class="roastLine">{line}</p>
-				{/each}
-
-				{#if expandedRoast === roast.managerID}
-					<div class="roastStats">
-						<div class="roastStat">
-							<div class="roastStatVal">{roast.stats.winRate}%</div>
-							<div class="roastStatLabel">Win Rate</div>
+		<div class="cards">
+			{#each roasts as r (r.manager.managerID)}
+				{@const mid = r.manager.managerID}
+				<article class="card {r.tier}">
+					<div class="top">
+						<div class="avatarWrap">
+							{#if r.manager.avatar && !avatarFailed[mid]}
+								<img
+									class="avatar"
+									src={r.manager.avatar}
+									alt="{r.manager.name} avatar"
+									decoding="async"
+									loading="lazy"
+									style:max-width={avatarCaps[mid] ? `${avatarCaps[mid]}px` : null}
+									onload={(e) => onAvatarLoad(mid, e)}
+									onerror={(e) => onAvatarError(r.manager, e)}
+								/>
+							{:else}
+								<div class="avatar initials" aria-hidden="true">{r.manager.name.slice(0, 1).toUpperCase()}</div>
+							{/if}
+							<span class="grade" title="Weekly grade">{r.grade}</span>
 						</div>
-						<div class="roastStat">
-							<div class="roastStatVal">{roast.stats.avgPoints}</div>
-							<div class="roastStatLabel">Avg PPG</div>
-						</div>
-						<div class="roastStat">
-							<div class="roastStatVal">{roast.stats.bestWeek}</div>
-							<div class="roastStatLabel">Best Week</div>
-						</div>
-						<div class="roastStat">
-							<div class="roastStatVal">{roast.stats.worstWeek}</div>
-							<div class="roastStatLabel">Worst Week</div>
+						<div class="ident">
+							<h3 class="name">{r.manager.name}</h3>
+							{#if r.manager.teamName}<div class="team">{r.manager.teamName}</div>{/if}
+							<div class="result">
+								{#if r.opp}
+									<span class="res {r.result}">{r.result}</span>
+									<span class="score">{fmt(r.score)}–{fmt(r.opp.score)}</span>
+									<span class="vs">vs {r.opp.name}</span>
+								{:else}
+									<span class="score">{fmt(r.score)}</span><span class="vs">no matchup</span>
+								{/if}
+							</div>
+							<div class="sub">
+								{recordText(r.record)} · {ordinal(r.standing)} place · {ordinal(r.weekRank)} of {r.numTeams} this week
+							</div>
 						</div>
 					</div>
+
+					<p class="headline">{r.headline}</p>
+					{#each r.paragraphs as para}
+						<p class="para">{para}</p>
+					{/each}
+
+					<dl class="receipts">
+						<div><dt>Left on bench</dt><dd>{fmt(r.benchLeft)}</dd></div>
+						<div><dt>Lineup efficiency</dt><dd>{r.efficiency}%</dd></div>
+						<div><dt>All-play</dt><dd>{r.allPlayW}-{r.allPlayL}</dd></div>
+						<div><dt>Season avg</dt><dd>{fmt(r.seasonAvg)}</dd></div>
+						<div><dt>PF rank</dt><dd>{ordinal(r.pfRank)}</dd></div>
+					</dl>
+
+					<details class="box">
+						<summary>Box score receipts</summary>
+						<div class="tableWrap">
+							<table>
+								<thead>
+									<tr><th>Slot</th><th>Player</th><th class="num">Proj</th><th class="num">Pts</th></tr>
+								</thead>
+								<tbody>
+									{#each r.starters as st}
+										<tr>
+											<td class="slot">{slotLabel(st.slot)}</td>
+											<td>{st.empty ? 'EMPTY SLOT' : st.label}</td>
+											<td class="num">{st.proj === undefined ? '—' : fmt(st.proj)}</td>
+											<td class="num strong">{fmt(st.pts)}</td>
+										</tr>
+									{/each}
+									{#each r.bench as b}
+										<tr class="benchRow">
+											<td class="slot">BN</td>
+											<td>{b.label}</td>
+											<td class="num">{b.proj === undefined ? '—' : fmt(b.proj)}</td>
+											<td class="num">{fmt(b.pts)}</td>
+										</tr>
+									{/each}
+								</tbody>
+							</table>
+						</div>
+						<p class="boxNote">Optimal lineup: {fmt(r.optimal)} · Actual: {fmt(r.score)}</p>
+					</details>
+
+					{#if history}
+						{@const career = history.careers[mid]}
+						<div class="history">
+							<div class="histHead">
+								<span>{history.years[0]}–{history.years[history.years.length - 1]} history</span>
+								{#if career}
+									<span class="career">
+										On record: {career.wins}-{career.losses}{career.ties ? `-${career.ties}` : ''}
+										over {career.seasons} season{career.seasons === 1 ? '' : 's'}{career.titles ? ` · ${career.titles} title${career.titles === 1 ? '' : 's'}` : ''}
+									</span>
+								{/if}
+							</div>
+							<ol class="strip">
+								{#each history.years as y}
+									{@const cell = history.byManager[mid]?.[y]}
+									<li
+										class="yr"
+										class:sleeper={cell?.platform === 'sleeper'}
+										class:yahoo={cell?.platform === 'yahoo'}
+										class:missing={!cell && y < history.sleeperRange[0]}
+										class:champ={cell?.champion}
+										class:live={cell?.inProgress}
+										title={cellTitle(y, cell)}
+									>
+										<span class="yrLabel">’{String(y).slice(2)}</span>
+										<span class="yrVal">{cell ? `${cell.wins}-${cell.losses}` : '—'}</span>
+										<span class="yrRank">{cell?.champion ? '★' : cell?.rank ? ordinal(cell.rank) : ''}</span>
+									</li>
+								{/each}
+							</ol>
+						</div>
+					{/if}
+				</article>
+			{/each}
+		</div>
+
+		{#if history}
+			<footer class="legend">
+				<span><i class="key sleeperKey"></i>Sleeper season ({history.sleeperRange[0]}–{history.sleeperRange[1]}), loaded live</span>
+				<span><i class="key liveKey"></i>Season in progress</span>
+				<span><i class="key champKey"></i>★ Champion</span>
+				{#if !history.yahooImported}
+					<span><i class="key missingKey"></i>Yahoo season (2011–{history.sleeperRange[0] - 1}): results not imported yet, nothing estimated</span>
 				{/if}
-			</div>
-		{/each}
+			</footer>
+		{/if}
 	{/if}
 </div>
+
+<style>
+	.roast {
+		--ink: #f4f1ea;
+		--ink-2: rgba(244, 241, 234, 0.72);
+		--ink-3: rgba(244, 241, 234, 0.48);
+		--line: rgba(255, 255, 255, 0.08);
+		--panel: rgba(255, 255, 255, 0.035);
+		--panel-2: rgba(255, 255, 255, 0.06);
+		--red: #e0473b;
+		--gold: #c9a84c;
+		--green: #4caf7a;
+		--amber: #d9912b;
+		max-width: 920px;
+		margin: 0 auto;
+		color: var(--ink);
+		text-align: left;
+	}
+
+	.state {
+		text-align: center;
+		padding: 3em 1em;
+		color: var(--ink-3);
+	}
+
+	.sr {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip: rect(0 0 0 0);
+	}
+
+	.bar {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+		margin-bottom: 1.5em;
+	}
+
+	.weekNav {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		flex-wrap: wrap;
+	}
+
+	.navBtn {
+		width: 36px;
+		height: 36px;
+		border-radius: 8px;
+		border: 1px solid var(--line);
+		background: var(--panel);
+		color: var(--ink);
+		font-size: 1.3em;
+		line-height: 1;
+		cursor: pointer;
+	}
+
+	.navBtn:disabled {
+		opacity: 0.3;
+		cursor: default;
+	}
+
+	.weekPick select {
+		height: 36px;
+		padding: 0 12px;
+		border-radius: 8px;
+		border: 1px solid var(--line);
+		background: #15151d;
+		color: var(--ink);
+		font-size: 0.95em;
+		font-weight: 700;
+		color-scheme: dark;
+	}
+
+	.season {
+		margin-left: 4px;
+		font-size: 0.75em;
+		letter-spacing: 1.5px;
+		text-transform: uppercase;
+		color: var(--gold);
+		font-weight: 700;
+	}
+
+	.meta {
+		margin: 0;
+		font-size: 0.8em;
+		color: var(--ink-3);
+		line-height: 1.5;
+	}
+
+	.cards {
+		display: flex;
+		flex-direction: column;
+		gap: 16px;
+	}
+
+	.card {
+		background: var(--panel);
+		border: 1px solid var(--line);
+		border-left: 4px solid var(--ink-3);
+		border-radius: 4px 12px 12px 4px;
+		padding: 20px 22px;
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+		min-width: 0;
+	}
+
+	.card.terrible { border-left-color: var(--red); }
+	.card.bad { border-left-color: var(--amber); }
+	.card.meh { border-left-color: rgba(244, 241, 234, 0.35); }
+	.card.good { border-left-color: var(--green); }
+	.card.elite { border-left-color: var(--gold); }
+
+	.top {
+		display: flex;
+		gap: 18px;
+		align-items: center;
+	}
+
+	.avatarWrap {
+		position: relative;
+		flex-shrink: 0;
+		width: clamp(96px, 22vw, 144px);
+		display: flex;
+		justify-content: center;
+	}
+
+	.avatar {
+		width: 100%;
+		height: auto;
+		aspect-ratio: 1 / 1;
+		object-fit: cover;
+		border-radius: 50%;
+		border: 3px solid var(--line);
+		background: #1b1b24;
+		display: block;
+	}
+
+	.initials {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 2.6em;
+		font-weight: 900;
+		color: var(--ink-3);
+	}
+
+	.grade {
+		position: absolute;
+		right: 0;
+		bottom: 2px;
+		min-width: 40px;
+		height: 40px;
+		padding: 0 6px;
+		border-radius: 20px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-weight: 900;
+		font-size: 1em;
+		background: #0d0d13;
+		border: 2px solid var(--ink-3);
+		color: var(--ink);
+	}
+
+	.terrible .grade { border-color: var(--red); color: var(--red); }
+	.bad .grade { border-color: var(--amber); color: var(--amber); }
+	.good .grade { border-color: var(--green); color: var(--green); }
+	.elite .grade { border-color: var(--gold); color: var(--gold); }
+
+	.ident {
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 3px;
+	}
+
+	.name {
+		margin: 0;
+		font-size: 1.35em;
+		font-weight: 800;
+		line-height: 1.15;
+		overflow-wrap: anywhere;
+	}
+
+	.team {
+		font-size: 0.82em;
+		color: var(--ink-3);
+		overflow-wrap: anywhere;
+	}
+
+	.result {
+		display: flex;
+		align-items: baseline;
+		gap: 8px;
+		flex-wrap: wrap;
+		margin-top: 4px;
+	}
+
+	.res {
+		font-weight: 900;
+		font-size: 0.8em;
+		padding: 2px 8px;
+		border-radius: 4px;
+		background: var(--panel-2);
+	}
+
+	.res.W { color: var(--green); }
+	.res.L { color: var(--red); }
+
+	.score {
+		font-weight: 800;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.vs, .sub {
+		font-size: 0.82em;
+		color: var(--ink-2);
+	}
+
+	.sub {
+		color: var(--ink-3);
+		font-variant-numeric: tabular-nums;
+	}
+
+	.headline {
+		margin: 6px 0 0;
+		font-size: 1.15em;
+		font-weight: 800;
+		font-style: italic;
+		color: var(--gold);
+		text-wrap: balance;
+	}
+
+	.para {
+		margin: 0;
+		font-size: 0.92em;
+		line-height: 1.65;
+		color: var(--ink-2);
+		max-width: 70ch;
+	}
+
+	.receipts {
+		display: grid;
+		grid-template-columns: repeat(5, minmax(0, 1fr));
+		gap: 8px;
+		margin: 6px 0 0;
+		padding-top: 12px;
+		border-top: 1px solid var(--line);
+	}
+
+	.receipts div {
+		display: flex;
+		flex-direction: column-reverse;
+		gap: 2px;
+	}
+
+	.receipts dt {
+		font-size: 0.66em;
+		text-transform: uppercase;
+		letter-spacing: 0.6px;
+		color: var(--ink-3);
+	}
+
+	.receipts dd {
+		margin: 0;
+		font-weight: 800;
+		font-size: 1.05em;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.box summary {
+		cursor: pointer;
+		font-size: 0.8em;
+		font-weight: 700;
+		color: var(--ink-2);
+		letter-spacing: 0.4px;
+	}
+
+	.tableWrap {
+		overflow-x: auto;
+		margin-top: 8px;
+	}
+
+	table {
+		width: 100%;
+		border-collapse: collapse;
+		font-size: 0.82em;
+	}
+
+	th, td {
+		padding: 5px 8px;
+		border-bottom: 1px solid var(--line);
+		text-align: left;
+		white-space: nowrap;
+	}
+
+	th {
+		font-size: 0.85em;
+		color: var(--ink-3);
+		font-weight: 600;
+	}
+
+	.num {
+		text-align: right;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.strong { font-weight: 800; }
+	.slot { color: var(--ink-3); font-weight: 700; }
+	.benchRow td { color: var(--ink-3); }
+
+	.boxNote {
+		margin: 6px 0 0;
+		font-size: 0.75em;
+		color: var(--ink-3);
+	}
+
+	.history {
+		padding-top: 12px;
+		border-top: 1px solid var(--line);
+	}
+
+	.histHead {
+		display: flex;
+		justify-content: space-between;
+		gap: 12px;
+		flex-wrap: wrap;
+		font-size: 0.72em;
+		text-transform: uppercase;
+		letter-spacing: 0.8px;
+		color: var(--ink-3);
+		margin-bottom: 8px;
+	}
+
+	.career {
+		text-transform: none;
+		letter-spacing: 0;
+		color: var(--ink-2);
+	}
+
+	.strip {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: grid;
+		grid-template-columns: repeat(16, minmax(0, 1fr));
+		gap: 4px;
+	}
+
+	.yr {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 1px;
+		padding: 5px 2px;
+		border-radius: 6px;
+		border: 1px solid var(--line);
+		font-variant-numeric: tabular-nums;
+		min-width: 0;
+	}
+
+	.yrLabel { font-size: 0.62em; color: var(--ink-3); }
+	.yrVal { font-size: 0.74em; font-weight: 800; }
+	.yrRank { font-size: 0.6em; color: var(--ink-2); min-height: 1.2em; }
+
+	.yr.missing {
+		background: repeating-linear-gradient(135deg, transparent 0 4px, rgba(255, 255, 255, 0.035) 4px 8px);
+	}
+
+	.yr.missing .yrVal { color: var(--ink-3); font-weight: 400; }
+	.yr.sleeper, .yr.yahoo { background: var(--panel-2); }
+	.yr.live { border-style: dashed; border-color: var(--ink-3); }
+	.yr.champ { border-color: var(--gold); background: rgba(201, 168, 76, 0.14); }
+	.yr.champ .yrRank { color: var(--gold); font-size: 0.75em; }
+
+	.legend {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px 18px;
+		margin-top: 18px;
+		font-size: 0.75em;
+		color: var(--ink-3);
+	}
+
+	.legend span {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+	}
+
+	.key {
+		width: 14px;
+		height: 14px;
+		border-radius: 3px;
+		border: 1px solid var(--line);
+		display: inline-block;
+	}
+
+	.sleeperKey { background: var(--panel-2); }
+	.liveKey { border-style: dashed; border-color: var(--ink-3); }
+	.champKey { border-color: var(--gold); background: rgba(201, 168, 76, 0.14); }
+	.missingKey { background: repeating-linear-gradient(135deg, transparent 0 3px, rgba(255, 255, 255, 0.12) 3px 6px); }
+
+	@media (max-width: 640px) {
+		.card { padding: 16px; }
+		.top { gap: 14px; }
+		.name { font-size: 1.15em; }
+		.receipts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+		.strip { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+	}
+</style>

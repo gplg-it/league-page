@@ -20,6 +20,12 @@ export const tabs = [
         key: 'transactions',
     },
     {
+        icon: 'science',
+        label: 'Trade Lab',
+        dest: '/trades',
+        key: 'trades',
+    },
+    {
         icon: 'article',
         label: 'Blog',
         dest: '/blog',
