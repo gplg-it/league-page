@@ -128,6 +128,11 @@ export const getLeagueAnalytics = async (refresh = false) => {
 			year,
 			numRosters: Object.keys(rosters).length,
 			playoffStart: leagueData.settings.playoff_week_start,
+			leagueSettings: leagueData.settings || {},
+			scoringSettings: leagueData.scoring_settings || {},
+			rosterPositions: leagueData.roster_positions || [],
+			leagueName: leagueData.name || '',
+			status: leagueData.status || '',
 		});
 
 		curSeason = leagueData.previous_league_id;

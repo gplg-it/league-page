@@ -8,6 +8,7 @@
     import StreaksAndMilestones from './StreaksAndMilestones.svelte';
     import PowerIndex from './PowerIndex.svelte';
     import MediaWall from './MediaWall.svelte';
+    import RulesEvolution from './RulesEvolution.svelte';
     import { getLeagueAnalytics } from '$lib/utils/helper';
     import { excludeFormerManagers } from '$lib/stores';
 
@@ -117,6 +118,7 @@
     let display = $state("manager");
 
     const tabs = [
+        { key: 'rules', label: 'Rules Evolution' },
         { key: 'manager', label: 'Performance' },
         { key: 'power', label: 'Power Index' },
         { key: 'h2h', label: 'Head-to-Head' },
@@ -278,7 +280,11 @@
         </div>
     {/if}
 
-    {#if filteredManagerAnalytics && Object.keys(filteredManagerAnalytics).length > 0}
+    {#if display === "rules"}
+        <RulesEvolution {allSeasons} />
+    {:else if display === "media"}
+        <MediaWall />
+    {:else if filteredManagerAnalytics && Object.keys(filteredManagerAnalytics).length > 0}
         {#if display === "manager"}
             <ManagerStats managerAnalytics={filteredManagerAnalytics} {leagueTeamManagers} luckAnalysis={filteredLuckAnalysis} />
         {:else if display === "power"}
@@ -293,11 +299,7 @@
             <ScoringTrends scoringTrends={filteredScoringTrends} {leagueTeamManagers} {allSeasons} />
         {:else if display === "comparison"}
             <SeasonComparison managerAnalytics={filteredManagerAnalytics} {leagueTeamManagers} {allSeasons} />
-        {:else if display === "media"}
-            <MediaWall />
         {/if}
-    {:else if display === "media"}
-        <MediaWall />
     {:else}
         <p class="empty">No analytics data available <i>yet</i>... Check back after the season starts.</p>
     {/if}
