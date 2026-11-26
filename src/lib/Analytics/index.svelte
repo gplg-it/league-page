@@ -138,52 +138,69 @@
         padding: 0 1em;
     }
 
+    .headerSection {
+        text-align: center;
+        margin: 1.5em 0 0;
+    }
+
+    .accentLine {
+        width: 60px;
+        height: 3px;
+        background: linear-gradient(90deg, #920505, #d44);
+        margin: 0 auto 1em;
+        border-radius: 2px;
+    }
+
     h1 {
         font-size: 2em;
         text-align: center;
-        margin: 1em 0 0.5em;
+        margin: 0 0 0.3em;
+        letter-spacing: -0.5px;
     }
 
     .subtitle {
         text-align: center;
         color: #888;
         margin: 0 0 1.5em;
-        font-size: 0.9em;
+        font-size: 0.88em;
     }
 
     .buttonHolder {
         text-align: center;
-        margin: 1em 0 0;
+        margin: 0 0 0;
     }
 
     .tabRow {
         display: flex;
         flex-wrap: wrap;
         justify-content: center;
-        gap: 4px;
-        margin: 1em 0 0;
+        gap: 5px;
+        margin: 0;
     }
 
     .tabBtn {
-        padding: 8px 14px;
-        border: 1px solid #ccc;
-        border-radius: 4px;
+        padding: 8px 16px;
+        border: 1px solid var(--eee);
+        border-radius: 20px;
         cursor: pointer;
         font-size: 0.8em;
         background: var(--fff);
         color: var(--g333);
         white-space: nowrap;
+        transition: all 0.2s ease;
     }
 
     .tabBtn.active {
         background: #920505;
         color: #fff;
         border-color: #920505;
+        box-shadow: 0 2px 8px rgba(146, 5, 5, 0.25);
     }
 
     .tabBtn:hover:not(.active) {
         border-color: #920505;
         color: #920505;
+        background: rgba(146, 5, 5, 0.04);
     }
 
     .toggleRow {
@@ -257,8 +274,11 @@
 </style>
 
 <div class="analyticsWrapper">
-    <h1>League Analytics</h1>
-    <p class="subtitle">Advanced statistical queries and performance analysis</p>
+    <div class="headerSection">
+        <div class="accentLine"></div>
+        <h1>League Analytics</h1>
+        <p class="subtitle">Advanced statistical queries and performance analysis</p>
+    </div>
 
     <div class="buttonHolder">
         <div class="tabRow">
