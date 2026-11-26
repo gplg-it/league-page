@@ -91,42 +91,45 @@ export const getYahooLeagueSettings = (year) => {
 const YAHOO_ROSTER = ['QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'FLEX', 'K', 'DEF', 'BN', 'BN', 'BN', 'BN', 'BN', 'BN'];
 
 // --- Manager rosters per year ---
-// Adam Hersh participated 2011-2019, Chico participated 2011-2022.
-// The remaining 10 spots each year are filled by current Sleeper managers.
+// Per the commissioner: Chico (Cicco's brother) played one season and micksitupp (Mickey)
+// took his spot; minafarag (Mina) took Adam Hersh's spot. Every other current manager has
+// been in the league since 2011. Chico's one season is taken to be 2011 because, with only
+// those two departures, both had to be founding members of the 12-team league.
+const CHICO_ONLY_SEASON = 2011;
+// Unconfirmed: the last season before Mina replaced Adam. Until it is set, that spot is
+// left unassigned after 2011 rather than guessed.
+const ADAM_HERSH_LAST_SEASON = null;
 
-const coreManagers = [
+const foundingManagers = [
 	{ managerID: MID.c3aquino,     name: 'c3aquino' },
 	{ managerID: MID.craigsmooth,  name: 'craigsmooth' },
 	{ managerID: MID.BWheels87,    name: 'BWheels87' },
-	{ managerID: MID.kazzamm,     name: 'kazzamm' },
+	{ managerID: MID.kazzamm,      name: 'kazzamm' },
 	{ managerID: MID.BABSLAB,      name: 'BABSLAB' },
 	{ managerID: MID.jsoliz,       name: 'jsoliz' },
-	{ managerID: MID.minafarag,    name: 'minafarag' },
 	{ managerID: MID.jimmypineda3, name: 'jimmypineda3' },
 	{ managerID: MID.RaandySavage, name: 'RaandySavage' },
+	{ managerID: MID.Cicco,        name: 'Cicco' },
 	{ managerID: MID.armvnd,       name: 'armvnd' },
 ];
 
 const adamHersh = { managerID: YAHOO_ADAM_HERSH, name: 'Adam Hersh' };
 const chico     = { managerID: YAHOO_CHICO,      name: 'Chico' };
+const mickey    = { managerID: MID.micksitupp,   name: 'micksitupp' };
+const mina      = { managerID: MID.minafarag,    name: 'minafarag' };
 
 const buildRoster = (members) =>
 	members.map((m, i) => ({ ...m, rosterID: i + 1 }));
 
 const yahooManagersByYearMap = {};
 for (let y = 2011; y <= 2023; y++) {
-	const members = [];
-	if (y <= 2019) {
+	const members = [...foundingManagers];
+	members.push(y === CHICO_ONLY_SEASON ? chico : mickey);
+	if (y === 2011 || (ADAM_HERSH_LAST_SEASON && y <= ADAM_HERSH_LAST_SEASON)) {
 		members.push(adamHersh);
-	} else {
-		members.push({ managerID: MID.Cicco, name: 'Cicco' });
+	} else if (ADAM_HERSH_LAST_SEASON) {
+		members.push(mina);
 	}
-	if (y <= 2022) {
-		members.push(chico);
-	} else {
-		members.push({ managerID: MID.micksitupp, name: 'micksitupp' });
-	}
-	members.push(...coreManagers);
 	yahooManagersByYearMap[y] = buildRoster(members);
 }
 

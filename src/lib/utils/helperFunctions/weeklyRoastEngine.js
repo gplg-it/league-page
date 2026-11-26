@@ -690,12 +690,62 @@ const composeNarrative = (t, meta, week, season) => {
 	};
 };
 
+// ---------- Topical material (real headlines) ----------
+
+const lowlightOf = (t) => {
+	const sig = (type) => t.signals.find(s => s.type === type);
+	const onBench = sig('lostWithWinOnBench');
+	if (onBench) return `losing by ${fmt(t.margin)} with ${fmt(t.benchLeft)} points sitting on the bench`;
+	const zero = sig('zeroProjZero') || sig('zeroStarter');
+	if (zero) return `starting ${zero.p.name} for ${fmt(zero.p.pts)} points`;
+	const backfired = sig('riskyBackfired');
+	if (backfired) return `benching ${backfired.call.benched.name} for ${backfired.call.started.name}`;
+	const blunder = sig('benchBlunder');
+	if (blunder) return `starting ${blunder.swap.started.name} over ${blunder.swap.benched.name}`;
+	const dud = sig('dud');
+	if (dud) return `${dud.p.name}'s ${fmt(dud.p.pts)}-point no-show`;
+	if (t.opp) return `a ${fmt(t.score)}-point performance against ${t.opp.name}`;
+	return `a ${fmt(t.score)}-point week`;
+};
+
+// Each template returns the text before and after the quoted headline.
+const TOPICAL_LOSS = [
+	(N, L) => [`Real headline from this week: "`, `." Real headline from ${N}'s week: ${L}. Only one of those should be humanly possible.`],
+	(N, L) => [`Also in the news this week: "`, `." Somehow still easier to explain than ${L}.`],
+	(N, L) => [`The news cycle gave us "`, `." ${N} looked at that, said "hold my beer," and went with ${L}.`],
+	(N, L) => [`Historians will remember this as the week of "`, `." ${N}'s family will remember it as the week of ${L}.`],
+	(N, L) => [`Somewhere a newsroom ran "`, `" and still decided ${N}'s ${L} was too disturbing for print.`],
+];
+const TOPICAL_WIN = [
+	(N) => [`This week the world got "`, `." ${N} got a W. Only one of those had anyone checking for a hidden camera.`],
+	(N) => [`In a week that produced "`, `," ${N} winning a fantasy game is somehow still the least believable story.`],
+	(N) => [`Real news this week: "`, `." Fake news this week: ${N} knows what they're doing.`],
+];
+
+const attachTopical = (roasts, headlines, week, season) => {
+	if (!headlines?.length) return roasts;
+	const order = [...headlines];
+	const rng = makeRng(`${season}-${week}-topical`);
+	for (let i = order.length - 1; i > 0; i--) {
+		const j = Math.floor(rng() * (i + 1));
+		[order[i], order[j]] = [order[j], order[i]];
+	}
+	return roasts.map((r, i) => {
+		const h = order[i % order.length];
+		const pickRng = makeRng(`${season}-${week}-${r.manager.managerID}-topical`);
+		const won = r.result === 'W' && r.tier !== 'terrible';
+		const tpl = pick(pickRng, won ? TOPICAL_WIN : TOPICAL_LOSS);
+		const [before, after] = tpl(r.manager.name, lowlightOf(r));
+		return { ...r, topical: { before, headline: h.title, after, url: h.url, source: h.source } };
+	});
+};
+
 // ---------- Public API ----------
 
 export const availableWeeks = (data) =>
 	Object.keys(data?.roastSeason?.weeks || {}).map(Number).sort((a, b) => a - b);
 
-export const buildRoastWeek = (data, players, week, leagueManagers = []) => {
+export const buildRoastWeek = (data, players, week, leagueManagers = [], headlines = []) => {
 	const roastSeason = data.roastSeason;
 	const matchups = roastSeason.weeks[week] || [];
 	if (!matchups.length) return [];
@@ -706,7 +756,7 @@ export const buildRoastWeek = (data, players, week, leagueManagers = []) => {
 	const opp = pairOpponents(matchups);
 	const weekScores = matchups.map(m => ({ rid: m.roster_id, pts: m.points }));
 
-	return matchups
+	const roasts = matchups
 		.map(m => {
 			const t = analyzeTeam({
 				m, opp: opp[m.roster_id], week, roastSeason, players, useProjections,
@@ -716,6 +766,7 @@ export const buildRoastWeek = (data, players, week, leagueManagers = []) => {
 			return { ...t, manager: mm, ...composeNarrative(t, mm, week, roastSeason.year) };
 		})
 		.sort((a, b) => a.gradeScore - b.gradeScore || a.score - b.score);
+	return attachTopical(roasts, headlines, week, roastSeason.year);
 };
 
 export const buildHistory = (data) => {
