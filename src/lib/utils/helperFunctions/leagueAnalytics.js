@@ -1,5 +1,5 @@
 import { getLeagueData } from './leagueData';
-import { leagueID } from '$lib/utils/leagueInfo';
+import { leagueID, formerYahooManagers } from '$lib/utils/leagueInfo';
 import { getNflState } from './nflState';
 import { getLeagueRosters } from './leagueRosters';
 import { getLeagueTeamManagers } from './leagueTeamManagers';
@@ -22,7 +22,11 @@ export const getLeagueAnalytics = async (refresh = false) => {
 		}
 	}
 
-	const nflState = await getNflState().catch((err) => { console.error(err); });
+	const [nflState, teamManagers] = await waitForAll(
+		getNflState(),
+		getLeagueTeamManagers(),
+	).catch((err) => { console.error(err); });
+
 	let week = 0;
 	if(nflState.season_type == 'regular') {
 		week = nflState.week - 1;
@@ -30,10 +34,37 @@ export const getLeagueAnalytics = async (refresh = false) => {
 		week = 18;
 	}
 
+	const resolveManagerID = (year, rosterID) => {
+		const yearMap = teamManagers.teamManagersMap[year];
+		if(yearMap && yearMap[rosterID] && yearMap[rosterID].managers && yearMap[rosterID].managers.length > 0) {
+			return yearMap[rosterID].managers[0];
+		}
+		return `unknown_${rosterID}_${year}`;
+	};
+
+	const formerManagerIDs = [];
+	if(formerYahooManagers && formerYahooManagers.length > 0) {
+		for(const former of formerYahooManagers) {
+			for(const userID in teamManagers.users) {
+				const user = teamManagers.users[userID];
+				const displayName = (user.display_name || '').toLowerCase();
+				const userName = (user.user_name || '').toLowerCase();
+				for(const pattern of former.patterns) {
+					if(displayName.includes(pattern) || userName.includes(pattern)) {
+						if(formerManagerIDs.indexOf(userID) === -1) {
+							formerManagerIDs.push(userID);
+						}
+						break;
+					}
+				}
+			}
+		}
+	}
+
 	let curSeason = leagueID;
 	const allMatchups = [];
 	const allSeasons = [];
-	const rosterSeasonMap = {};
+	const managerSeasonMap = {};
 
 	while(curSeason && curSeason != 0) {
 		const [rosterRes, leagueData] = await waitForAll(
@@ -55,10 +86,11 @@ export const getLeagueAnalytics = async (refresh = false) => {
 			continue;
 		}
 
-		rosterSeasonMap[year] = {};
+		managerSeasonMap[year] = {};
 		for(const rosterID in rosters) {
 			const roster = rosters[rosterID];
-			rosterSeasonMap[year][rosterID] = {
+			const mID = resolveManagerID(year, rosterID);
+			managerSeasonMap[year][mID] = {
 				wins: roster.settings.wins,
 				losses: roster.settings.losses,
 				ties: roster.settings.ties,
@@ -87,6 +119,7 @@ export const getLeagueAnalytics = async (refresh = false) => {
 					...matchup,
 					year,
 					week: w + 1,
+					managerID: resolveManagerID(year, matchup.roster_id),
 				});
 			}
 		}
@@ -101,13 +134,13 @@ export const getLeagueAnalytics = async (refresh = false) => {
 		week = 99;
 	}
 
-	const managerAnalytics = computeManagerAnalytics(allMatchups, allSeasons, rosterSeasonMap);
+	const managerAnalytics = computeManagerAnalytics(allMatchups, allSeasons, managerSeasonMap);
 	const matchupInsights = computeMatchupInsights(allMatchups, allSeasons);
 	const scoringTrends = computeScoringTrends(allMatchups, allSeasons);
 	const luckAnalysis = computeLuckAnalysis(allMatchups, allSeasons);
 	const headToHead = computeHeadToHead(allMatchups, allSeasons);
-	const streaksAndMilestones = computeStreaksAndMilestones(allMatchups, allSeasons, rosterSeasonMap);
-	const powerIndex = computePowerIndex(managerAnalytics, luckAnalysis, matchupInsights, rosterSeasonMap);
+	const streaksAndMilestones = computeStreaksAndMilestones(allMatchups, allSeasons, managerSeasonMap);
+	const powerIndex = computePowerIndex(managerAnalytics, luckAnalysis, matchupInsights, managerSeasonMap);
 	const closeGames = computeCloseGames(allMatchups, allSeasons);
 
 	const analyticsData = {
@@ -120,6 +153,7 @@ export const getLeagueAnalytics = async (refresh = false) => {
 		powerIndex,
 		closeGames,
 		allSeasons,
+		formerManagerIDs,
 	};
 
 	setCached('analytics', analyticsData);
@@ -128,13 +162,12 @@ export const getLeagueAnalytics = async (refresh = false) => {
 	return analyticsData;
 }
 
-const computeManagerAnalytics = (allMatchups, allSeasons, rosterSeasonMap) => {
+const computeManagerAnalytics = (allMatchups, allSeasons, managerSeasonMap) => {
 	const managerWeeklyScores = {};
 	const managerMatchupResults = {};
 
 	for(const matchup of allMatchups) {
-		const rosterID = matchup.roster_id;
-		const key = rosterID;
+		const key = matchup.managerID;
 		if(!managerWeeklyScores[key]) {
 			managerWeeklyScores[key] = [];
 			managerMatchupResults[key] = {
@@ -175,15 +208,15 @@ const computeManagerAnalytics = (allMatchups, allSeasons, rosterSeasonMap) => {
 			const aPoints = a.points || 0;
 			const bPoints = b.points || 0;
 
-			recordResult(managerMatchupResults, a.roster_id, aPoints, bPoints, a.year);
-			recordResult(managerMatchupResults, b.roster_id, bPoints, aPoints, b.year);
+			recordResult(managerMatchupResults, a.managerID, aPoints, bPoints, a.year);
+			recordResult(managerMatchupResults, b.managerID, bPoints, aPoints, b.year);
 		}
 	}
 
 	const analytics = {};
 
-	for(const rosterID in managerWeeklyScores) {
-		const scores = managerWeeklyScores[rosterID].map(s => s.points).filter(p => p > 0);
+	for(const managerID in managerWeeklyScores) {
+		const scores = managerWeeklyScores[managerID].map(s => s.points).filter(p => p > 0);
 		if(scores.length === 0) continue;
 
 		const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
@@ -191,16 +224,15 @@ const computeManagerAnalytics = (allMatchups, allSeasons, rosterSeasonMap) => {
 		const stdDev = Math.sqrt(variance);
 		const consistency = round(100 - (stdDev / mean * 100));
 
-		const results = managerMatchupResults[rosterID] || {};
+		const results = managerMatchupResults[managerID] || {};
 		const totalGames = results.totalGames || 1;
 
-		const seasonData = rosterSeasonMap;
 		let totalPotential = 0;
 		let totalActual = 0;
-		for(const year in seasonData) {
-			if(seasonData[year][rosterID]) {
-				totalPotential += seasonData[year][rosterID].potentialPoints || 0;
-				totalActual += seasonData[year][rosterID].fpts || 0;
+		for(const year in managerSeasonMap) {
+			if(managerSeasonMap[year][managerID]) {
+				totalPotential += managerSeasonMap[year][managerID].potentialPoints || 0;
+				totalActual += managerSeasonMap[year][managerID].fpts || 0;
 			}
 		}
 
@@ -210,7 +242,7 @@ const computeManagerAnalytics = (allMatchups, allSeasons, rosterSeasonMap) => {
 		const worstWeek = Math.min(...scores);
 
 		const byYear = {};
-		for(const entry of managerWeeklyScores[rosterID]) {
+		for(const entry of managerWeeklyScores[managerID]) {
 			if(!byYear[entry.year]) byYear[entry.year] = [];
 			byYear[entry.year].push(entry.points);
 		}
@@ -231,8 +263,8 @@ const computeManagerAnalytics = (allMatchups, allSeasons, rosterSeasonMap) => {
 			};
 		}
 
-		analytics[rosterID] = {
-			rosterID,
+		analytics[managerID] = {
+			managerID,
 			avgPoints: round(mean),
 			stdDev: round(stdDev),
 			consistency,
@@ -253,27 +285,27 @@ const computeManagerAnalytics = (allMatchups, allSeasons, rosterSeasonMap) => {
 	return analytics;
 }
 
-const recordResult = (results, rosterID, pts, opponentPts, year) => {
-	if(!results[rosterID]) {
-		results[rosterID] = {
+const recordResult = (results, managerID, pts, opponentPts, year) => {
+	if(!results[managerID]) {
+		results[managerID] = {
 			totalGames: 0, wins: 0, losses: 0, ties: 0,
 			totalPoints: 0, totalPointsAgainst: 0, seasons: {},
 		};
 	}
-	results[rosterID].totalGames++;
-	results[rosterID].totalPoints += pts;
-	results[rosterID].totalPointsAgainst += opponentPts;
+	results[managerID].totalGames++;
+	results[managerID].totalPoints += pts;
+	results[managerID].totalPointsAgainst += opponentPts;
 
-	if(pts > opponentPts) results[rosterID].wins++;
-	else if(pts < opponentPts) results[rosterID].losses++;
-	else results[rosterID].ties++;
+	if(pts > opponentPts) results[managerID].wins++;
+	else if(pts < opponentPts) results[managerID].losses++;
+	else results[managerID].ties++;
 
-	if(!results[rosterID].seasons[year]) {
-		results[rosterID].seasons[year] = { wins: 0, losses: 0, ties: 0 };
+	if(!results[managerID].seasons[year]) {
+		results[managerID].seasons[year] = { wins: 0, losses: 0, ties: 0 };
 	}
-	if(pts > opponentPts) results[rosterID].seasons[year].wins++;
-	else if(pts < opponentPts) results[rosterID].seasons[year].losses++;
-	else results[rosterID].seasons[year].ties++;
+	if(pts > opponentPts) results[managerID].seasons[year].wins++;
+	else if(pts < opponentPts) results[managerID].seasons[year].losses++;
+	else results[managerID].seasons[year].ties++;
 }
 
 const computeMatchupInsights = (allMatchups, allSeasons) => {
@@ -306,23 +338,23 @@ const computeMatchupInsights = (allMatchups, allSeasons) => {
 			if(mKey !== weekKey) continue;
 			if(!matchup.points || matchup.points <= 0) continue;
 
-			const rosterID = matchup.roster_id;
-			if(!allPlayRecords[rosterID]) {
-				allPlayRecords[rosterID] = { wins: 0, losses: 0, ties: 0, totalGames: 0 };
+			const mID = matchup.managerID;
+			if(!allPlayRecords[mID]) {
+				allPlayRecords[mID] = { wins: 0, losses: 0, ties: 0, totalGames: 0 };
 			}
 
 			for(const score of weekScores) {
 				if(score === matchup.points) continue;
-				allPlayRecords[rosterID].totalGames++;
-				if(matchup.points > score) allPlayRecords[rosterID].wins++;
-				else if(matchup.points < score) allPlayRecords[rosterID].losses++;
-				else allPlayRecords[rosterID].ties++;
+				allPlayRecords[mID].totalGames++;
+				if(matchup.points > score) allPlayRecords[mID].wins++;
+				else if(matchup.points < score) allPlayRecords[mID].losses++;
+				else allPlayRecords[mID].ties++;
 			}
 		}
 	}
 
-	for(const rosterID in allPlayRecords) {
-		const record = allPlayRecords[rosterID];
+	for(const mID in allPlayRecords) {
+		const record = allPlayRecords[mID];
 		record.winPct = record.totalGames > 0 ? round(record.wins / record.totalGames * 100) : 0;
 	}
 
@@ -345,7 +377,7 @@ const computeScoringTrends = (allMatchups, allSeasons) => {
 			trendsByYear[key][matchup.week] = { scores: [], week: matchup.week };
 		}
 		trendsByYear[key][matchup.week].scores.push({
-			rosterID: matchup.roster_id,
+			managerID: matchup.managerID,
 			points: matchup.points,
 		});
 	}
@@ -369,30 +401,31 @@ const computeScoringTrends = (allMatchups, allSeasons) => {
 		}
 	}
 
-	const rosterTrends = {};
+	const managerTrends = {};
 	for(const matchup of allMatchups) {
 		if(!matchup.points || matchup.points <= 0) continue;
-		if(!rosterTrends[matchup.roster_id]) {
-			rosterTrends[matchup.roster_id] = {};
+		const mID = matchup.managerID;
+		if(!managerTrends[mID]) {
+			managerTrends[mID] = {};
 		}
-		if(!rosterTrends[matchup.roster_id][matchup.year]) {
-			rosterTrends[matchup.roster_id][matchup.year] = [];
+		if(!managerTrends[mID][matchup.year]) {
+			managerTrends[mID][matchup.year] = [];
 		}
-		rosterTrends[matchup.roster_id][matchup.year].push({
+		managerTrends[mID][matchup.year].push({
 			week: matchup.week,
 			points: matchup.points,
 		});
 	}
 
-	for(const rosterID in rosterTrends) {
-		for(const year in rosterTrends[rosterID]) {
-			rosterTrends[rosterID][year].sort((a, b) => a.week - b.week);
+	for(const mID in managerTrends) {
+		for(const year in managerTrends[mID]) {
+			managerTrends[mID][year].sort((a, b) => a.week - b.week);
 		}
 	}
 
 	return {
 		leagueAverageByWeek,
-		rosterTrends,
+		rosterTrends: managerTrends,
 	};
 }
 
@@ -405,7 +438,7 @@ const computeLuckAnalysis = (allMatchups, allSeasons) => {
 		matchupsByWeekYear[key][matchup.matchup_id].push(matchup);
 	}
 
-	const luckByRoster = {};
+	const luckByManager = {};
 
 	for(const weekKey in matchupsByWeekYear) {
 		const allScoresThisWeek = [];
@@ -425,13 +458,13 @@ const computeLuckAnalysis = (allMatchups, allSeasons) => {
 			if(sides.length !== 2) continue;
 			const [a, b] = sides;
 
-			analyzeLuck(luckByRoster, a, b, median);
-			analyzeLuck(luckByRoster, b, a, median);
+			analyzeLuck(luckByManager, a, b, median);
+			analyzeLuck(luckByManager, b, a, median);
 		}
 	}
 
-	for(const rosterID in luckByRoster) {
-		const luck = luckByRoster[rosterID];
+	for(const mID in luckByManager) {
+		const luck = luckByManager[mID];
 		luck.luckIndex = round(
 			(luck.luckyWins - luck.unluckyLosses) / Math.max(luck.totalGames, 1) * 100
 		);
@@ -440,18 +473,18 @@ const computeLuckAnalysis = (allMatchups, allSeasons) => {
 		luck.winDifferential = luck.actualWins - luck.expectedWins;
 	}
 
-	return luckByRoster;
+	return luckByManager;
 }
 
-const analyzeLuck = (luckByRoster, team, opponent, median) => {
-	const rosterID = team.roster_id;
+const analyzeLuck = (luckByManager, team, opponent, median) => {
+	const mID = team.managerID;
 	const pts = team.points || 0;
 	const oppPts = opponent.points || 0;
 
 	if(pts <= 0) return;
 
-	if(!luckByRoster[rosterID]) {
-		luckByRoster[rosterID] = {
+	if(!luckByManager[mID]) {
+		luckByManager[mID] = {
 			luckyWins: 0,
 			unluckyLosses: 0,
 			aboveMedianWeeks: 0,
@@ -463,20 +496,20 @@ const analyzeLuck = (luckByRoster, team, opponent, median) => {
 		};
 	}
 
-	luckByRoster[rosterID].totalGames++;
+	luckByManager[mID].totalGames++;
 
 	const won = pts > oppPts;
 	const aboveMedian = pts >= median;
 
-	if(aboveMedian) luckByRoster[rosterID].aboveMedianWeeks++;
-	else luckByRoster[rosterID].belowMedianWeeks++;
+	if(aboveMedian) luckByManager[mID].aboveMedianWeeks++;
+	else luckByManager[mID].belowMedianWeeks++;
 
 	if(won) {
-		luckByRoster[rosterID].actualWins++;
-		if(!aboveMedian) luckByRoster[rosterID].luckyWins++;
+		luckByManager[mID].actualWins++;
+		if(!aboveMedian) luckByManager[mID].luckyWins++;
 	} else {
-		luckByRoster[rosterID].actualLosses++;
-		if(aboveMedian) luckByRoster[rosterID].unluckyLosses++;
+		luckByManager[mID].actualLosses++;
+		if(aboveMedian) luckByManager[mID].unluckyLosses++;
 	}
 }
 
@@ -501,23 +534,23 @@ const computeHeadToHead = (allMatchups, allSeasons) => {
 			if(aPts <= 0 && bPts <= 0) continue;
 			const year = a.year;
 
-			recordH2H(h2h, a.roster_id, b.roster_id, aPts, bPts, year);
-			recordH2H(h2h, b.roster_id, a.roster_id, bPts, aPts, year);
+			recordH2H(h2h, a.managerID, b.managerID, aPts, bPts, year);
+			recordH2H(h2h, b.managerID, a.managerID, bPts, aPts, year);
 		}
 	}
 
 	return h2h;
 }
 
-const recordH2H = (h2h, rosterA, rosterB, ptsFor, ptsAgainst, year) => {
-	if(!h2h[rosterA]) h2h[rosterA] = {};
-	if(!h2h[rosterA][rosterB]) {
-		h2h[rosterA][rosterB] = {
+const recordH2H = (h2h, managerA, managerB, ptsFor, ptsAgainst, year) => {
+	if(!h2h[managerA]) h2h[managerA] = {};
+	if(!h2h[managerA][managerB]) {
+		h2h[managerA][managerB] = {
 			allTime: { wins: 0, losses: 0, ties: 0, totalPtsFor: 0, totalPtsAgainst: 0 },
 			bySeason: {},
 		};
 	}
-	const record = h2h[rosterA][rosterB];
+	const record = h2h[managerA][managerB];
 
 	const update = (target) => {
 		target.totalPtsFor += ptsFor;
@@ -534,7 +567,7 @@ const recordH2H = (h2h, rosterA, rosterB, ptsFor, ptsAgainst, year) => {
 	update(record.bySeason[year]);
 }
 
-const computeStreaksAndMilestones = (allMatchups, allSeasons, rosterSeasonMap) => {
+const computeStreaksAndMilestones = (allMatchups, allSeasons, managerSeasonMap) => {
 	const matchupsByWeekYear = {};
 	for(const matchup of allMatchups) {
 		const key = `${matchup.year}-${matchup.week}`;
@@ -570,54 +603,54 @@ const computeStreaksAndMilestones = (allMatchups, allSeasons, rosterSeasonMap) =
 			const loser = aPts > bPts ? b : (bPts > aPts ? a : null);
 
 			if(aPts > 0) {
-				highScores.push({ rosterID: a.roster_id, points: round(aPts), year: a.year, week: a.week });
+				highScores.push({ managerID: a.managerID, points: round(aPts), year: a.year, week: a.week });
 			}
 			if(bPts > 0) {
-				highScores.push({ rosterID: b.roster_id, points: round(bPts), year: b.year, week: b.week });
+				highScores.push({ managerID: b.managerID, points: round(bPts), year: b.year, week: b.week });
 			}
 
 			if(winner && loser) {
 				blowouts.push({
-					winnerID: winner.roster_id, loserID: loser.roster_id,
+					winnerID: winner.managerID, loserID: loser.managerID,
 					winnerPts: round(winner.points), loserPts: round(loser.points),
 					margin: round(margin), year: winner.year, week: winner.week,
 				});
 				nailbiters.push({
-					winnerID: winner.roster_id, loserID: loser.roster_id,
+					winnerID: winner.managerID, loserID: loser.managerID,
 					winnerPts: round(winner.points), loserPts: round(loser.points),
 					margin: round(margin), year: winner.year, week: winner.week,
 				});
 			}
 
 			for(const side of [a, b]) {
-				const rid = side.roster_id;
+				const mID = side.managerID;
 				const pts = side.points || 0;
 				const oppPts = side === a ? bPts : aPts;
 				if(pts <= 0) continue;
 
-				if(!currentStreaks[rid]) currentStreaks[rid] = { type: null, count: 0 };
-				if(!bestWinStreaks[rid]) bestWinStreaks[rid] = 0;
-				if(!bestLossStreaks[rid]) bestLossStreaks[rid] = 0;
+				if(!currentStreaks[mID]) currentStreaks[mID] = { type: null, count: 0 };
+				if(!bestWinStreaks[mID]) bestWinStreaks[mID] = 0;
+				if(!bestLossStreaks[mID]) bestLossStreaks[mID] = 0;
 
 				const won = pts > oppPts;
 				const lost = pts < oppPts;
 
 				if(won) {
-					if(currentStreaks[rid].type === 'W') {
-						currentStreaks[rid].count++;
+					if(currentStreaks[mID].type === 'W') {
+						currentStreaks[mID].count++;
 					} else {
-						currentStreaks[rid] = { type: 'W', count: 1 };
+						currentStreaks[mID] = { type: 'W', count: 1 };
 					}
-					bestWinStreaks[rid] = Math.max(bestWinStreaks[rid], currentStreaks[rid].count);
+					bestWinStreaks[mID] = Math.max(bestWinStreaks[mID], currentStreaks[mID].count);
 				} else if(lost) {
-					if(currentStreaks[rid].type === 'L') {
-						currentStreaks[rid].count++;
+					if(currentStreaks[mID].type === 'L') {
+						currentStreaks[mID].count++;
 					} else {
-						currentStreaks[rid] = { type: 'L', count: 1 };
+						currentStreaks[mID] = { type: 'L', count: 1 };
 					}
-					bestLossStreaks[rid] = Math.max(bestLossStreaks[rid], currentStreaks[rid].count);
+					bestLossStreaks[mID] = Math.max(bestLossStreaks[mID], currentStreaks[mID].count);
 				} else {
-					currentStreaks[rid] = { type: null, count: 0 };
+					currentStreaks[mID] = { type: null, count: 0 };
 				}
 			}
 		}
@@ -628,11 +661,11 @@ const computeStreaksAndMilestones = (allMatchups, allSeasons, rosterSeasonMap) =
 	nailbiters.sort((a, b) => a.margin - b.margin);
 
 	const milestones = {};
-	for(const rid in bestWinStreaks) {
-		milestones[rid] = {
-			bestWinStreak: bestWinStreaks[rid],
-			bestLossStreak: bestLossStreaks[rid] || 0,
-			currentStreak: currentStreaks[rid] || { type: null, count: 0 },
+	for(const mID in bestWinStreaks) {
+		milestones[mID] = {
+			bestWinStreak: bestWinStreaks[mID],
+			bestLossStreak: bestLossStreaks[mID] || 0,
+			currentStreak: currentStreaks[mID] || { type: null, count: 0 },
 		};
 	}
 
@@ -644,14 +677,14 @@ const computeStreaksAndMilestones = (allMatchups, allSeasons, rosterSeasonMap) =
 	};
 }
 
-const computePowerIndex = (managerAnalytics, luckAnalysis, matchupInsights, rosterSeasonMap) => {
+const computePowerIndex = (managerAnalytics, luckAnalysis, matchupInsights, managerSeasonMap) => {
 	const powerIndex = {};
 	const allPlayRecords = matchupInsights?.allPlayRecords || {};
 
-	for(const rosterID in managerAnalytics) {
-		const mgr = managerAnalytics[rosterID];
-		const luck = luckAnalysis[rosterID] || {};
-		const allPlay = allPlayRecords[rosterID] || {};
+	for(const managerID in managerAnalytics) {
+		const mgr = managerAnalytics[managerID];
+		const luck = luckAnalysis[managerID] || {};
+		const allPlay = allPlayRecords[managerID] || {};
 
 		const winPct = mgr.gamesPlayed > 0 ? mgr.wins / mgr.gamesPlayed : 0;
 		const allPlayPct = (allPlay.winPct || 0) / 100;
@@ -665,8 +698,8 @@ const computePowerIndex = (managerAnalytics, luckAnalysis, matchupInsights, rost
 			(efficiencyScore * 15)
 		);
 
-		powerIndex[rosterID] = {
-			rosterID,
+		powerIndex[managerID] = {
+			managerID,
 			dominance,
 			winPct: round(winPct * 100),
 			allPlayPct: round(allPlayPct * 100),
@@ -690,7 +723,7 @@ const computeCloseGames = (allMatchups, allSeasons) => {
 		matchupsByWeekYear[key][matchup.matchup_id].push(matchup);
 	}
 
-	const rosterCloseGames = {};
+	const managerCloseGames = {};
 
 	for(const weekKey in matchupsByWeekYear) {
 		for(const matchupID in matchupsByWeekYear[weekKey]) {
@@ -706,24 +739,24 @@ const computeCloseGames = (allMatchups, allSeasons) => {
 			const isBlowout = margin >= 40;
 
 			for(const side of [a, b]) {
-				const rid = side.roster_id;
-				if(!rosterCloseGames[rid]) {
-					rosterCloseGames[rid] = { closeWins: 0, closeLosses: 0, blowoutWins: 0, blowoutLosses: 0, totalGames: 0 };
+				const mID = side.managerID;
+				if(!managerCloseGames[mID]) {
+					managerCloseGames[mID] = { closeWins: 0, closeLosses: 0, blowoutWins: 0, blowoutLosses: 0, totalGames: 0 };
 				}
-				rosterCloseGames[rid].totalGames++;
+				managerCloseGames[mID].totalGames++;
 				const pts = side === a ? aPts : bPts;
 				const oppPts = side === a ? bPts : aPts;
 				if(isClose) {
-					if(pts > oppPts) rosterCloseGames[rid].closeWins++;
-					else if(pts < oppPts) rosterCloseGames[rid].closeLosses++;
+					if(pts > oppPts) managerCloseGames[mID].closeWins++;
+					else if(pts < oppPts) managerCloseGames[mID].closeLosses++;
 				}
 				if(isBlowout) {
-					if(pts > oppPts) rosterCloseGames[rid].blowoutWins++;
-					else if(pts < oppPts) rosterCloseGames[rid].blowoutLosses++;
+					if(pts > oppPts) managerCloseGames[mID].blowoutWins++;
+					else if(pts < oppPts) managerCloseGames[mID].blowoutLosses++;
 				}
 			}
 		}
 	}
 
-	return rosterCloseGames;
+	return managerCloseGames;
 }

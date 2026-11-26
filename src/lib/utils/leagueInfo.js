@@ -219,3 +219,8 @@ export const managers = [
             "preferredContact": "Sleeper"
         }
     ];
+
+export const formerYahooManagers = [
+    { label: "Adam Hersh", patterns: ["adam hersh", "hersh", "adam_hersh"] },
+    { label: "Chico", patterns: ["chico", "cicco"] },
+];

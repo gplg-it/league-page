@@ -1,6 +1,6 @@
 <script>
     import DataTable, { Head, Body, Row, Cell } from '@smui/data-table';
-    import { getTeamFromTeamManagers } from '$lib/utils/helperFunctions/universalFunctions';
+    import { getTeamFromManagerID } from '$lib/utils/helperFunctions/universalFunctions';
 
     let {luckAnalysis, leagueTeamManagers, allPlayRecords} = $props();
 
@@ -10,14 +10,14 @@
     let teams = $derived.by(() => {
         if(!luckAnalysis) return [];
         return Object.entries(luckAnalysis)
-            .map(([rosterID, data]) => ({rosterID, ...data}))
+            .map(([managerID, data]) => ({managerID, ...data}))
             .sort((a, b) => sortDir === "desc" ? parseFloat(b[sortField]) - parseFloat(a[sortField]) : parseFloat(a[sortField]) - parseFloat(b[sortField]));
     });
 
     let allPlayTeams = $derived.by(() => {
         if(!allPlayRecords) return [];
         return Object.entries(allPlayRecords)
-            .map(([rosterID, data]) => ({rosterID, ...data}))
+            .map(([managerID, data]) => ({managerID, ...data}))
             .sort((a, b) => parseFloat(b.winPct) - parseFloat(a.winPct));
     });
 
@@ -156,11 +156,11 @@
     <div class="graphSection">
         <div class="graphTitle">Luck Index by Team</div>
         {#each teams as team}
-            {@const teamData = getTeamFromTeamManagers(leagueTeamManagers, team.rosterID)}
+            {@const teamData = getTeamFromManagerID(leagueTeamManagers, team.managerID)}
             {@const maxAbs = Math.max(...teams.map(t => Math.abs(parseFloat(t.luckIndex))))}
             {@const pct = Math.abs(parseFloat(team.luckIndex)) / maxAbs * 45}
             <div class="luckBar">
-                <div class="luckLabel">{teamData?.name || `Roster ${team.rosterID}`}</div>
+                <div class="luckLabel">{teamData?.name || `Manager ${team.managerID}`}</div>
                 <div class="luckTrack">
                     <div class="luckCenter"></div>
                     {#if parseFloat(team.luckIndex) >= 0}
@@ -190,9 +190,9 @@
             </Head>
             <Body>
                 {#each teams as team}
-                    {@const teamData = getTeamFromTeamManagers(leagueTeamManagers, team.rosterID)}
+                    {@const teamData = getTeamFromManagerID(leagueTeamManagers, team.managerID)}
                     <Row>
-                        <Cell>{teamData?.name || `Roster ${team.rosterID}`}</Cell>
+                        <Cell>{teamData?.name || `Manager ${team.managerID}`}</Cell>
                         {#each luckColumns as col}
                             {@const isLuck = col.field === "luckIndex"}
                             {@const val = parseFloat(team[col.field])}
@@ -228,9 +228,9 @@
                 </Head>
                 <Body>
                     {#each allPlayTeams as team}
-                        {@const teamData = getTeamFromTeamManagers(leagueTeamManagers, team.rosterID)}
+                        {@const teamData = getTeamFromManagerID(leagueTeamManagers, team.managerID)}
                         <Row>
-                            <Cell>{teamData?.name || `Roster ${team.rosterID}`}</Cell>
+                            <Cell>{teamData?.name || `Manager ${team.managerID}`}</Cell>
                             <Cell class="center">{team.wins}</Cell>
                             <Cell class="center">{team.losses}</Cell>
                             <Cell class="center">{team.ties}</Cell>

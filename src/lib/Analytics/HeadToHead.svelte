@@ -1,19 +1,19 @@
 <script>
     import DataTable, { Head, Body, Row, Cell } from '@smui/data-table';
-    import { getTeamFromTeamManagers } from '$lib/utils/helper';
+    import { getTeamFromManagerID } from '$lib/utils/helper';
 
     let { headToHead, leagueTeamManagers, allSeasons } = $props();
 
     let selectedSeason = $state('all');
 
-    const getManagerName = (rosterID) => {
-        const team = getTeamFromTeamManagers(leagueTeamManagers, rosterID);
-        return team?.team?.name || team?.team?.display_name || `Roster ${rosterID}`;
+    const getManagerName = (managerID) => {
+        const team = getTeamFromManagerID(leagueTeamManagers, managerID);
+        return team?.name || `Manager ${managerID}`;
     };
 
-    const getRosterIDs = () => {
+    const getManagerIDs = () => {
         if(!headToHead) return [];
-        return Object.keys(headToHead).sort((a, b) => parseInt(a) - parseInt(b));
+        return Object.keys(headToHead);
     };
 
     const getRecord = (rosterA, rosterB) => {
@@ -135,21 +135,21 @@
             <thead>
                 <tr>
                     <th class="stickyCol">Manager</th>
-                    {#each getRosterIDs() as rosterID}
-                        <th>{getManagerName(rosterID)}</th>
+                    {#each getManagerIDs() as mID}
+                        <th>{getManagerName(mID)}</th>
                     {/each}
                 </tr>
             </thead>
             <tbody>
-                {#each getRosterIDs() as rowRoster}
+                {#each getManagerIDs() as rowID}
                     <tr>
-                        <td class="stickyCol">{getManagerName(rowRoster)}</td>
-                        {#each getRosterIDs() as colRoster}
-                            {#if rowRoster === colRoster}
+                        <td class="stickyCol">{getManagerName(rowID)}</td>
+                        {#each getManagerIDs() as colID}
+                            {#if rowID === colID}
                                 <td class="diagonal">-</td>
                             {:else}
-                                {@const record = getRecord(rowRoster, colRoster)}
-                                <td style={getCellColor(record)} title="{getManagerName(rowRoster)} vs {getManagerName(colRoster)}: PF {record.totalPtsFor?.toFixed(1) || 0} PA {record.totalPtsAgainst?.toFixed(1) || 0}">
+                                {@const record = getRecord(rowID, colID)}
+                                <td style={getCellColor(record)} title="{getManagerName(rowID)} vs {getManagerName(colID)}: PF {record.totalPtsFor?.toFixed(1) || 0} PA {record.totalPtsAgainst?.toFixed(1) || 0}">
                                     {formatRecord(record)}
                                 </td>
                             {/if}

@@ -1,6 +1,6 @@
 <script>
     import DataTable, { Head, Body, Row, Cell } from '@smui/data-table';
-    import { getTeamFromTeamManagers } from '$lib/utils/helperFunctions/universalFunctions';
+    import { getTeamFromManagerID } from '$lib/utils/helperFunctions/universalFunctions';
     import { BarChart } from '$lib/components';
 
     let {managerAnalytics, leagueTeamManagers, luckAnalysis} = $props();
@@ -39,8 +39,8 @@
         return {
             stats: managers.map(m => parseFloat(m.consistency)),
             labels: managers.map(m => {
-                const team = getTeamFromTeamManagers(leagueTeamManagers, m.rosterID);
-                return team?.name || `Roster ${m.rosterID}`;
+                const team = getTeamFromManagerID(leagueTeamManagers, m.managerID);
+                return team?.name || `Manager ${m.managerID}`;
             }),
             header: "Scoring Consistency Index",
             field: "Consistency %",
@@ -52,8 +52,8 @@
         return {
             stats: managers.map(m => parseFloat(m.efficiency)),
             labels: managers.map(m => {
-                const team = getTeamFromTeamManagers(leagueTeamManagers, m.rosterID);
-                return team?.name || `Roster ${m.rosterID}`;
+                const team = getTeamFromManagerID(leagueTeamManagers, m.managerID);
+                return team?.name || `Manager ${m.managerID}`;
             }),
             header: "Lineup Efficiency (Actual vs Optimal)",
             field: "Efficiency %",
@@ -183,9 +183,9 @@
             </Head>
             <Body>
                 {#each managers as mgr}
-                    {@const team = getTeamFromTeamManagers(leagueTeamManagers, mgr.rosterID)}
+                    {@const team = getTeamFromManagerID(leagueTeamManagers, mgr.managerID)}
                     <Row>
-                        <Cell>{team?.name || `Roster ${mgr.rosterID}`}</Cell>
+                        <Cell>{team?.name || `Manager ${mgr.managerID}`}</Cell>
                         <Cell class="center">{mgr.wins}</Cell>
                         <Cell class="center">{mgr.losses}</Cell>
                         <Cell class="center">{mgr.gamesPlayed}</Cell>

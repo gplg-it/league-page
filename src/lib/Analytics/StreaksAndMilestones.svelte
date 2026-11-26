@@ -1,13 +1,13 @@
 <script>
-    import { getTeamFromTeamManagers } from '$lib/utils/helper';
+    import { getTeamFromManagerID } from '$lib/utils/helper';
 
     let { streaksAndMilestones, leagueTeamManagers } = $props();
 
     let view = $state('records');
 
-    const getManagerName = (rosterID) => {
-        const team = getTeamFromTeamManagers(leagueTeamManagers, rosterID);
-        return team?.team?.name || team?.team?.display_name || `Roster ${rosterID}`;
+    const getManagerName = (managerID) => {
+        const team = getTeamFromManagerID(leagueTeamManagers, managerID);
+        return team?.name || `Manager ${managerID}`;
     };
 
     const getStreakLabel = (streak) => {
@@ -18,7 +18,7 @@
     const getMilestonesSorted = () => {
         if(!streaksAndMilestones?.milestones) return [];
         return Object.entries(streaksAndMilestones.milestones)
-            .map(([rid, data]) => ({ rosterID: rid, ...data }))
+            .map(([mID, data]) => ({ managerID: mID, ...data }))
             .sort((a, b) => b.bestWinStreak - a.bestWinStreak);
     };
 </script>
@@ -144,7 +144,7 @@
         <div class="recordsGrid">
             {#each getMilestonesSorted() as mgr}
                 <div class="recordCard">
-                    <div class="name">{getManagerName(mgr.rosterID)}</div>
+                    <div class="name">{getManagerName(mgr.managerID)}</div>
                     <div class="streakBadge" class:win={mgr.currentStreak?.type === 'W'} class:loss={mgr.currentStreak?.type === 'L'} class:none={!mgr.currentStreak?.type}>
                         {getStreakLabel(mgr.currentStreak)}
                     </div>
@@ -164,7 +164,7 @@
                     {#each streaksAndMilestones?.highScores || [] as score, i}
                         <tr>
                             <td class:gold={i === 0} class:silver={i === 1} class:bronze={i === 2}>{i + 1}</td>
-                            <td>{getManagerName(score.rosterID)}</td>
+                            <td>{getManagerName(score.managerID)}</td>
                             <td>{score.points.toFixed(1)}</td>
                             <td>{score.year}</td>
                             <td>{score.week}</td>

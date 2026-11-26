@@ -307,3 +307,15 @@ export const checkIfManagerReceivedAward = (teamManagers, awardRosterID, year, m
     if(!managerID) return false;
     return teamManagers.teamManagersMap[year][awardRosterID].managers.indexOf(managerID) > -1;
 }
+
+export const getTeamFromManagerID = (teamManagers, managerID) => {
+    const years = Object.keys(teamManagers.teamManagersMap).sort((a, b) => b - a);
+    for(const year of years) {
+        for(const rosterID in teamManagers.teamManagersMap[year]) {
+            if(teamManagers.teamManagersMap[year][rosterID].managers.indexOf(managerID) > -1) {
+                return teamManagers.teamManagersMap[year][rosterID].team;
+            }
+        }
+    }
+    return { name: 'Unknown', avatar: 'https://sleepercdn.com/images/v2/icons/player_default.webp' };
+};

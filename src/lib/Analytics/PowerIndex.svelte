@@ -1,14 +1,14 @@
 <script>
-    import { getTeamFromTeamManagers } from '$lib/utils/helper';
+    import { getTeamFromManagerID } from '$lib/utils/helper';
 
     let { powerIndex, closeGames, leagueTeamManagers } = $props();
 
     let sortKey = $state('dominance');
     let sortDir = $state(-1);
 
-    const getManagerName = (rosterID) => {
-        const team = getTeamFromTeamManagers(leagueTeamManagers, rosterID);
-        return team?.team?.name || team?.team?.display_name || `Roster ${rosterID}`;
+    const getManagerName = (managerID) => {
+        const team = getTeamFromManagerID(leagueTeamManagers, managerID);
+        return team?.name || `Manager ${managerID}`;
     };
 
     const getSorted = () => {
@@ -36,9 +36,9 @@
         return `width: ${Math.min(val, 100)}%; background: linear-gradient(90deg, #4CAF50, #8BC34A); height: 8px; border-radius: 4px;`;
     };
 
-    const getCloseRecord = (rosterID) => {
-        if(!closeGames || !closeGames[rosterID]) return { closeWins: 0, closeLosses: 0, blowoutWins: 0, blowoutLosses: 0 };
-        return closeGames[rosterID];
+    const getCloseRecord = (managerID) => {
+        if(!closeGames || !closeGames[managerID]) return { closeWins: 0, closeLosses: 0, blowoutWins: 0, blowoutLosses: 0 };
+        return closeGames[managerID];
     };
 </script>
 
@@ -144,11 +144,11 @@
 
     <div class="rankingsList">
         {#each getSorted() as mgr, i}
-            {@const close = getCloseRecord(mgr.rosterID)}
+            {@const close = getCloseRecord(mgr.managerID)}
             <div class="rankCard">
                 <div class="rankNum" style={getRankColor(i)}>{i + 1}</div>
                 <div class="rankDetails">
-                    <div class="name">{getManagerName(mgr.rosterID)}</div>
+                    <div class="name">{getManagerName(mgr.managerID)}</div>
                     <div class="statRow">
                         <span>Win: {mgr.winPct}%</span>
                         <span>All-Play: {mgr.allPlayPct}%</span>

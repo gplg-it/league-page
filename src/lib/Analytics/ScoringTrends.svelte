@@ -1,5 +1,5 @@
 <script>
-    import { getTeamFromTeamManagers } from '$lib/utils/helperFunctions/universalFunctions';
+    import { getTeamFromManagerID } from '$lib/utils/helperFunctions/universalFunctions';
     import { round } from '$lib/utils/helper';
 
     let {scoringTrends, leagueTeamManagers, allSeasons} = $props();
@@ -18,7 +18,7 @@
 
     let maxScore = $derived(Math.max(...weeklyData.map(w => parseFloat(w.high)), 1));
 
-    let rosterIDs = $derived(Object.keys(scoringTrends?.rosterTrends || {}));
+    let managerIDs = $derived(Object.keys(scoringTrends?.rosterTrends || {}));
 
     let selectedRoster = $state(null);
 
@@ -194,9 +194,9 @@
         </select>
         <select bind:value={selectedRoster}>
             <option value={null}>Compare Team...</option>
-            {#each rosterIDs as rID}
-                {@const team = getTeamFromTeamManagers(leagueTeamManagers, rID)}
-                <option value={rID}>{team?.name || `Roster ${rID}`}</option>
+            {#each managerIDs as mID}
+                {@const team = getTeamFromManagerID(leagueTeamManagers, mID)}
+                <option value={mID}>{team?.name || mID}</option>
             {/each}
         </select>
     </div>

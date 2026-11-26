@@ -1,16 +1,16 @@
 <script>
     import DataTable, { Head, Body, Row, Cell } from '@smui/data-table';
-    import { getTeamFromTeamManagers } from '$lib/utils/helperFunctions/universalFunctions';
+    import { getTeamFromManagerID } from '$lib/utils/helperFunctions/universalFunctions';
 
     let {managerAnalytics, leagueTeamManagers, allSeasons} = $props();
 
     let selectedRoster = $state(null);
 
-    let rosterIDs = $derived(Object.keys(managerAnalytics || {}));
+    let managerIDs = $derived(Object.keys(managerAnalytics || {}));
 
     $effect(() => {
-        if(rosterIDs.length && !selectedRoster) {
-            selectedRoster = rosterIDs[0];
+        if(managerIDs.length && !selectedRoster) {
+            selectedRoster = managerIDs[0];
         }
     });
 
@@ -141,9 +141,9 @@
 
     <div class="controls">
         <select bind:value={selectedRoster}>
-            {#each rosterIDs as rID}
-                {@const team = getTeamFromTeamManagers(leagueTeamManagers, rID)}
-                <option value={rID}>{team?.name || `Roster ${rID}`}</option>
+            {#each managerIDs as mID}
+                {@const team = getTeamFromManagerID(leagueTeamManagers, mID)}
+                <option value={mID}>{team?.name || mID}</option>
             {/each}
         </select>
     </div>
