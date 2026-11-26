@@ -15,3 +15,5 @@ export const news = writable([]);
 export const posts = writable([]);
 export const brackets = writable({});
 export const standingsStore = writable({});
+export const analyticsStore = writable({});
+export const excludeFormerManagers = writable(true);

@@ -4,10 +4,18 @@ import { getLeagueRosters } from './leagueRosters';
 import {waitForAll} from './multiPromise';
 import { get } from 'svelte/store';
 import {brackets} from '$lib/stores';
+import { getCached, setCached } from './cache';
 
 export const getBrackets = async (queryLeagueID = leagueID) => {
     if(get(brackets).champs && queryLeagueID == leagueID) {
         return get(brackets);
+    }
+    if(queryLeagueID == leagueID) {
+        const cached = getCached('brackets');
+        if(cached) {
+            brackets.update(() => cached);
+            return cached;
+        }
     }
 
     // get roster, user, and league data
@@ -93,9 +101,9 @@ export const getBrackets = async (queryLeagueID = leagueID) => {
         losers,
     }
 
-    // only update cache for most recent season
     if(queryLeagueID == leagueID) {
         brackets.update(() => finalBrackets);
+        setCached('brackets', finalBrackets);
     }
 
     return finalBrackets;

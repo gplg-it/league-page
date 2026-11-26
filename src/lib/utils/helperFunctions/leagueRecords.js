@@ -8,7 +8,7 @@ import { records } from '$lib/stores';
 import { getManagers, round, sortHighAndLow } from './universalFunctions';
 import { Records } from '$lib/utils/dataClasses';
 import { getBrackets } from './leagueBrackets';
-import { browser } from '$app/environment';
+import { getCached, setCached } from './cache';
 
 /**
  * getLeagueRecords obtains all the record for a league since it was first created
@@ -16,19 +16,14 @@ import { browser } from '$app/environment';
  * @returns {Object} { allTimeBiggestBlowouts, allTimeClosestMatchups, leastSeasonLongPoints, mostSeasonLongPoints, leagueWeekLows, leagueWeekHighs, seasonWeekRecords, leagueManagerRecords, currentYear, lastYear}
  */
 export const getLeagueRecords = async (refresh = false) => {
-	// records temporarily cached for an individual session
 	if(get(records).leagueWeekHighs) {
 		return get(records);
 	}
-
-	// if this isn't a refresh data call, check if there are already
-	// transactions stored in localStorage (long term)
-	if(!refresh && browser) {
-		let localRecords = await JSON.parse(localStorage.getItem("records"));
-		// check if transactions have been saved to localStorage before
-		if(localRecords && localRecords.playoffData) {
-			localRecords.stale = true;
-			return localRecords;
+	if(!refresh) {
+		const cached = getCached('records');
+		if(cached) {
+			records.update(() => cached);
+			return cached;
 		}
 	}
 
@@ -110,12 +105,8 @@ export const getLeagueRecords = async (refresh = false) => {
 
 	const recordsData = {regularSeasonData, playoffData};
 
-    if(browser) {
-        // update localStorage
-        localStorage.setItem("records", JSON.stringify(recordsData));
-    
-        records.update(() => recordsData);
-    }
+	records.update(() => recordsData);
+	setCached('records', recordsData);
 
 	return recordsData;
 }

@@ -4,8 +4,8 @@ import { getNflState } from './nflState';
 import { waitForAll } from './multiPromise';
 import { get } from 'svelte/store';
 import {transactionsStore} from '$lib/stores';
-import { browser } from '$app/environment';
 import { getLeagueTeamManagers } from './leagueTeamManagers';
+import { getCached, setCached } from './cache';
 
 export const getLeagueTransactions = async (preview, refresh = false) => {
 	const transactionsStoreVal = get(transactionsStore);
@@ -14,18 +14,17 @@ export const getLeagueTransactions = async (preview, refresh = false) => {
 		return {
 			transactions: checkPreview(preview, transactionsStoreVal.transactions),
 			totals: transactionsStoreVal.totals,
-			stale: false
 		};
 	}
 
-	// if this isn't a refresh data call, check if there are already transactions stored in localStorage
-	if(!refresh && browser) {
-		let localTransactions = await JSON.parse(localStorage.getItem("transactions"));
-		// check if transactions have been saved to localStorage before
-		if(localTransactions) {
-			localTransactions.transactions = checkPreview(preview, localTransactions.transactions);
-			localTransactions.stale = true;
-			return localTransactions;
+	if(!refresh) {
+		const cached = getCached('transactions');
+		if(cached) {
+			transactionsStore.update(() => cached);
+			return {
+				transactions: checkPreview(preview, cached.transactions),
+				totals: cached.totals,
+			};
 		}
 	}
 
@@ -46,18 +45,12 @@ export const getLeagueTransactions = async (preview, refresh = false) => {
 		totals
 	};
 
-    if(browser) {
-	    // update localStorage
-        localStorage.setItem("transactions", JSON.stringify(transactionPackage));
-    
-        // update the store
-        transactionsStore.update(() => transactionPackage);
-    }
+	transactionsStore.update(() => transactionPackage);
+	setCached('transactions', transactionPackage);
 
 	return {
 		transactions: checkPreview(preview, transactions),
 		totals,
-		stale: false
 	};
 }
 

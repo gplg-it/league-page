@@ -1,6 +1,7 @@
 import { leagueID } from '$lib/utils/leagueInfo';
 import { get } from 'svelte/store';
 import { rostersStore } from '$lib/stores';
+import { getCached, setCached } from './cache';
 
 export const getLeagueRosters = async (queryLeagueID = leagueID) => {
     const storedRoster = get(rostersStore)[queryLeagueID];
@@ -12,12 +13,18 @@ export const getLeagueRosters = async (queryLeagueID = leagueID) => {
     ) {
 		return storedRoster;
 	}
+	const cached = getCached(`rosters_${queryLeagueID}`);
+	if(cached) {
+		rostersStore.update(r => {r[queryLeagueID] = cached; return r});
+		return cached;
+	}
     const res = await fetch(`https://api.sleeper.app/v1/league/${queryLeagueID}/rosters`, {compress: true}).catch((err) => { console.error(err); });
 	const data = await res.json().catch((err) => { console.error(err); });
 	
 	if (res.ok) {
 		const processedRosters = processRosters(data);
 		rostersStore.update(r => {r[queryLeagueID] = processedRosters; return r});
+		setCached(`rosters_${queryLeagueID}`, processedRosters);
 		return processedRosters;
 	} else {
 		throw new Error(data);

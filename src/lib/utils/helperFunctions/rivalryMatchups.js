@@ -4,10 +4,17 @@ import { getNflState } from "./nflState"
 import { waitForAll } from './multiPromise';
 import { getRosterIDFromManagerIDAndYear } from '$lib/utils/helperFunctions/universalFunctions';
 import { getLeagueTeamManagers } from "./leagueTeamManagers";
+import { getCached, setCached } from './cache';
 
 export const getRivalryMatchups = async (userOneID, userTwoID) => {
     if(!userOneID || !userTwoID) {
         return;
+    }
+
+    const cacheKey = `rivalry_${[userOneID, userTwoID].sort().join('_')}`;
+    const cached = getCached(cacheKey);
+    if(cached) {
+        return cached;
     }
 
     let curLeagueID = leagueID;
@@ -100,6 +107,8 @@ export const getRivalryMatchups = async (userOneID, userTwoID) => {
         var weekOrder = b.week - a.week;
         return yearOrder || weekOrder;
     });
+
+    setCached(cacheKey, rivalry);
 
 	return rivalry;
 }

@@ -4,10 +4,16 @@ import { waitForAll } from './multiPromise';
 import { get } from 'svelte/store';
 import {upcomingDraft, previousDrafts} from '$lib/stores';
 import { getLeagueRosters } from './leagueRosters';
+import { getCached, setCached } from './cache';
 
 export const getUpcomingDraft = async () => {
 	if(get(upcomingDraft).draft) {
 		return get(upcomingDraft);
+	}
+	const cachedDraft = getCached('upcomingDraft');
+	if(cachedDraft) {
+		upcomingDraft.update(() => cachedDraft);
+		return cachedDraft;
 	}
     const [rosterRes, leagueData] = await waitForAll(
 		getLeagueRosters(),
@@ -57,6 +63,7 @@ export const getUpcomingDraft = async () => {
 	}
 	
 	upcomingDraft.update(() => draftData);
+	setCached('upcomingDraft', draftData);
 
 	return draftData;
 }
@@ -187,6 +194,11 @@ export const getPreviousDrafts = async () => {
 	if(get(previousDrafts).length > 0) {
 		return get(previousDrafts);
 	}
+	const cachedPrev = getCached('previousDrafts');
+	if(cachedPrev) {
+		previousDrafts.update(() => cachedPrev);
+		return cachedPrev;
+	}
 	let curSeason = leagueID;
 
 	const drafts = [];
@@ -240,6 +252,7 @@ export const getPreviousDrafts = async () => {
 	}
 	
 	previousDrafts.update(() => drafts);
+	setCached('previousDrafts', drafts);
 
 	return drafts;
 }

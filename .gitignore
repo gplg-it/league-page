@@ -2,9 +2,12 @@
 node_modules
 /.svelte-kit
 /.vercel
+/.wrangler
 /package
 .env
+.dev.vars
 static/smui-dark.css
 static/smui.css
 build
 .vercel_build_output
+scripts/league-data/

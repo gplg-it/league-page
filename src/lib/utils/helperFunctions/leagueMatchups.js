@@ -4,10 +4,16 @@ import { getNflState } from "./nflState"
 import { waitForAll } from './multiPromise';
 import { get } from 'svelte/store';
 import {matchupsStore} from '$lib/stores';
+import { getCached, setCached } from './cache';
 
 export const getLeagueMatchups = async () => {
 	if(get(matchupsStore).matchupWeeks) {
 		return get(matchupsStore);
+	}
+	const cached = getCached('matchups');
+	if(cached) {
+		matchupsStore.update(() => cached);
+		return cached;
 	}
 
 	const [nflState, leagueData] = await waitForAll(
@@ -62,6 +68,7 @@ export const getLeagueMatchups = async () => {
 	}
 	
 	matchupsStore.update(() => matchupsResponse);
+	setCached('matchups', matchupsResponse);
 
 	return matchupsResponse;
 }
