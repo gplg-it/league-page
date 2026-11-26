@@ -8,6 +8,7 @@ import { get } from 'svelte/store';
 import { analyticsStore } from '$lib/stores';
 import { round } from './universalFunctions';
 import { getCached, setCached } from './cache';
+import { yahooHistoricalSeasons, yahooManagersByYear, yahooSeasonStandings, yahooMatchups } from './yahooHistoricalData';
 
 export const getLeagueAnalytics = async (refresh = false) => {
 	if(get(analyticsStore).managerAnalytics) {
@@ -126,6 +127,7 @@ export const getLeagueAnalytics = async (refresh = false) => {
 
 		allSeasons.push({
 			year,
+			platform: 'sleeper',
 			numRosters: Object.keys(rosters).length,
 			playoffStart: leagueData.settings.playoff_week_start,
 			leagueSettings: leagueData.settings || {},
@@ -138,6 +140,53 @@ export const getLeagueAnalytics = async (refresh = false) => {
 		curSeason = leagueData.previous_league_id;
 		week = 99;
 	}
+
+	// Merge Yahoo historical data (2011-2023)
+	if (yahooHistoricalSeasons && yahooHistoricalSeasons.length > 0) {
+		for (const yahooSeason of yahooHistoricalSeasons) {
+			allSeasons.push({
+				year: yahooSeason.year,
+				platform: 'yahoo',
+				numRosters: yahooSeason.numRosters,
+				playoffStart: yahooSeason.playoffStart,
+				leagueSettings: yahooSeason.leagueSettings,
+				scoringSettings: yahooSeason.scoringSettings,
+				rosterPositions: yahooSeason.rosterPositions,
+				leagueName: yahooSeason.leagueName,
+				status: yahooSeason.status,
+			});
+
+			const standings = yahooSeasonStandings[yahooSeason.year];
+			if (standings && standings.length > 0) {
+				managerSeasonMap[yahooSeason.year] = {};
+				for (const standing of standings) {
+					managerSeasonMap[yahooSeason.year][standing.managerID] = {
+						wins: standing.wins || 0,
+						losses: standing.losses || 0,
+						ties: standing.ties || 0,
+						fpts: standing.fpts || 0,
+						fptsAgainst: standing.fptsAgainst || 0,
+						potentialPoints: standing.potentialPoints || 0,
+					};
+				}
+			}
+		}
+
+		if (yahooMatchups && yahooMatchups.length > 0) {
+			for (const matchup of yahooMatchups) {
+				allMatchups.push({
+					roster_id: matchup.roster_id,
+					matchup_id: matchup.matchup_id,
+					points: matchup.points,
+					year: matchup.year,
+					week: matchup.week,
+					managerID: matchup.managerID,
+				});
+			}
+		}
+	}
+
+	allSeasons.sort((a, b) => a.year - b.year);
 
 	const managerAnalytics = computeManagerAnalytics(allMatchups, allSeasons, managerSeasonMap);
 	const matchupInsights = computeMatchupInsights(allMatchups, allSeasons);

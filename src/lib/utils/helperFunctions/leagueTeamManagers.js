@@ -5,6 +5,7 @@ import { waitForAll } from './multiPromise';
 import { getManagers, getTeamData } from './universalFunctions';
 import { getLeagueData } from './leagueData';
 import { getCached, setCached } from './cache';
+import { yahooManagersByYear, YAHOO_MANAGER_IDS } from './yahooHistoricalData';
 
 export const getLeagueTeamManagers = async () => {
     if(get(teamManagersStore) && get(teamManagersStore).currentSeason) {
@@ -53,6 +54,30 @@ export const getLeagueTeamManagers = async () => {
             };
         }
     }
+
+    // Merge Yahoo-era manager data (2011-2023)
+    for (const [yearStr, roster] of Object.entries(yahooManagersByYear)) {
+        const year = parseInt(yearStr);
+        if (teamManagersMap[year]) continue;
+        teamManagersMap[year] = {};
+        for (const member of roster) {
+            teamManagersMap[year][member.rosterID] = {
+                team: {
+                    name: member.name,
+                    avatar: null,
+                },
+                managers: [member.managerID],
+            };
+            if (!finalUsers[member.managerID]) {
+                finalUsers[member.managerID] = {
+                    user_id: member.managerID,
+                    display_name: member.name,
+                    user_name: member.name,
+                };
+            }
+        }
+    }
+
     const response = {
         currentSeason,
         teamManagersMap,

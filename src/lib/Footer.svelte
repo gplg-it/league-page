@@ -100,6 +100,18 @@
 		font-size: 0.8em;
 		margin-top: 0;
 	}
+
+	:global(.kingLink) {
+		color: #920505;
+		font-weight: 700;
+		text-decoration: none;
+		letter-spacing: 0.5px;
+	}
+
+	:global(.kingLink:hover) {
+		color: #c41010;
+		text-decoration: underline;
+	}
 </style>
 
 <div class="footerSpacer" style="height: {footerHeight}px;" />
@@ -132,12 +144,5 @@
 			{/each}
 		</ul>
 	</div>
-	<!-- PLEASE DO NOT REMOVE THE COPYRIGHT -->
-	<span class="copyright">&copy; 2021 - {year} <a href="https://github.com/nmelhado/league-page">League Page</a></span>
-	<br />
-	<!-- PLEASE DO NOT REMOVE THE BUILT BY -->
-	<span class="creator">Built by <a href="http://www.nmelhado.com/">Nicholas Melhado</a><br /></span>
-	<!-- You can remove the donation link (although any donations to help
-	 maintain and enhance League Page would be greatly appreciated!) -->
-	Love League Page? Please consider <a href="https://www.buymeacoffee.com/nmelhado">donating</a> to support enhancements or just to say thank you!
+	<span class="creator">Built by your one and true <a href="/king.jpg" target="_blank" class="kingLink">King</a>.</span>
 </footer>
