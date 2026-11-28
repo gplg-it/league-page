@@ -222,5 +222,6 @@ export const managers = [
 
 export const formerYahooManagers = [
     { label: "Adam Hersh", patterns: ["adam hersh", "hersh", "adam_hersh"] },
-    { label: "Chico", patterns: ["chico", "cicco"] },
+    // Chico and Cicco are brothers; Cicco is a current manager and must not match here.
+    { label: "Chico", patterns: ["chico"] },
 ];

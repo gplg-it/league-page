@@ -91,42 +91,36 @@ export const getYahooLeagueSettings = (year) => {
 const YAHOO_ROSTER = ['QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'FLEX', 'K', 'DEF', 'BN', 'BN', 'BN', 'BN', 'BN', 'BN'];
 
 // --- Manager rosters per year ---
-// Adam Hersh participated 2011-2019, Chico participated 2011-2022.
-// The remaining 10 spots each year are filled by current Sleeper managers.
+// Per the commissioner: Adam Hersh and Chico (Cicco's brother) each played only the
+// inaugural 2011 season. From 2012, minafarag (Mina) took Adam's spot and micksitupp
+// (Mickey) took Chico's. Every other current manager has been in the league since 2011.
+const FIRST_SEASON_ONLY = 2011;
 
-const coreManagers = [
+const foundingManagers = [
 	{ managerID: MID.c3aquino,     name: 'c3aquino' },
 	{ managerID: MID.craigsmooth,  name: 'craigsmooth' },
 	{ managerID: MID.BWheels87,    name: 'BWheels87' },
-	{ managerID: MID.kazzamm,     name: 'kazzamm' },
+	{ managerID: MID.kazzamm,      name: 'kazzamm' },
 	{ managerID: MID.BABSLAB,      name: 'BABSLAB' },
 	{ managerID: MID.jsoliz,       name: 'jsoliz' },
-	{ managerID: MID.minafarag,    name: 'minafarag' },
 	{ managerID: MID.jimmypineda3, name: 'jimmypineda3' },
 	{ managerID: MID.RaandySavage, name: 'RaandySavage' },
+	{ managerID: MID.Cicco,        name: 'Cicco' },
 	{ managerID: MID.armvnd,       name: 'armvnd' },
 ];
 
 const adamHersh = { managerID: YAHOO_ADAM_HERSH, name: 'Adam Hersh' };
 const chico     = { managerID: YAHOO_CHICO,      name: 'Chico' };
+const mickey    = { managerID: MID.micksitupp,   name: 'micksitupp' };
+const mina      = { managerID: MID.minafarag,    name: 'minafarag' };
 
 const buildRoster = (members) =>
 	members.map((m, i) => ({ ...m, rosterID: i + 1 }));
 
 const yahooManagersByYearMap = {};
 for (let y = 2011; y <= 2023; y++) {
-	const members = [];
-	if (y <= 2019) {
-		members.push(adamHersh);
-	} else {
-		members.push({ managerID: MID.Cicco, name: 'Cicco' });
-	}
-	if (y <= 2022) {
-		members.push(chico);
-	} else {
-		members.push({ managerID: MID.micksitupp, name: 'micksitupp' });
-	}
-	members.push(...coreManagers);
+	const members = [...foundingManagers];
+	members.push(...(y === FIRST_SEASON_ONLY ? [adamHersh, chico] : [mina, mickey]));
 	yahooManagersByYearMap[y] = buildRoster(members);
 }
 

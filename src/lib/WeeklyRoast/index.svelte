@@ -4,17 +4,21 @@
 	import { loadPlayers, managers } from '$lib/utils/helper';
 	import { loadWeeklyRoastData } from '$lib/utils/helperFunctions/weeklyRoastData';
 	import { buildRoastWeek, buildHistory, availableWeeks, fmt } from '$lib/utils/helperFunctions/weeklyRoastEngine';
+	import { loadRoastHeadlines } from '$lib/utils/helperFunctions/roastHeadlines';
 
 	let loading = $state(true);
 	let error = $state(null);
 	let data = $state.raw(null);
 	let players = $state.raw({});
+	let headlines = $state.raw([]);
 	let week = $state(null);
 	let avatarCaps = $state({});
 	let avatarFailed = $state({});
 
 	const weeks = $derived(data ? availableWeeks(data) : []);
-	const roasts = $derived(data && week ? buildRoastWeek(data, players, week, managers) : []);
+	// Headlines are this week's news, so they only belong on the most recent final week.
+	const isLatestWeek = $derived(weeks.length > 0 && week === weeks[weeks.length - 1]);
+	const roasts = $derived(data && week ? buildRoastWeek(data, players, week, managers, isLatestWeek ? headlines : []) : []);
 	const history = $derived(data ? buildHistory(data) : null);
 	const weekIdx = $derived(weeks.indexOf(week));
 	const hasProjections = $derived(data && String(data.nflState.league_season) === String(data.roastSeason?.year));
@@ -60,6 +64,7 @@
 	};
 
 	onMount(async () => {
+		loadRoastHeadlines().then(h => { headlines = h; }).catch(() => {});
 		try {
 			const [d, p] = await Promise.all([
 				loadWeeklyRoastData(),
@@ -151,6 +156,12 @@
 					{#each r.paragraphs as para}
 						<p class="para">{para}</p>
 					{/each}
+					{#if r.topical}
+						<p class="para topical">
+							{r.topical.before}<a href={r.topical.url} target="_blank" rel="noopener noreferrer">{r.topical.headline}</a>{r.topical.after}
+							<span class="src">via {r.topical.source}</span>
+						</p>
+					{/if}
 
 					<dl class="receipts">
 						<div><dt>Left on bench</dt><dd>{fmt(r.benchLeft)}</dd></div>
@@ -481,6 +492,24 @@
 		line-height: 1.65;
 		color: var(--ink-2);
 		max-width: 70ch;
+	}
+
+	.topical {
+		padding-left: 12px;
+		border-left: 2px solid var(--gold);
+	}
+
+	.topical a {
+		color: var(--ink);
+		text-decoration: underline;
+		text-decoration-color: var(--gold);
+		text-underline-offset: 2px;
+	}
+
+	.topical .src {
+		font-size: 0.78em;
+		color: var(--ink-3);
+		white-space: nowrap;
 	}
 
 	.receipts {
