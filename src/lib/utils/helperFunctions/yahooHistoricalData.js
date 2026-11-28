@@ -91,14 +91,10 @@ export const getYahooLeagueSettings = (year) => {
 const YAHOO_ROSTER = ['QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'FLEX', 'K', 'DEF', 'BN', 'BN', 'BN', 'BN', 'BN', 'BN'];
 
 // --- Manager rosters per year ---
-// Per the commissioner: Chico (Cicco's brother) played one season and micksitupp (Mickey)
-// took his spot; minafarag (Mina) took Adam Hersh's spot. Every other current manager has
-// been in the league since 2011. Chico's one season is taken to be 2011 because, with only
-// those two departures, both had to be founding members of the 12-team league.
-const CHICO_ONLY_SEASON = 2011;
-// Unconfirmed: the last season before Mina replaced Adam. Until it is set, that spot is
-// left unassigned after 2011 rather than guessed.
-const ADAM_HERSH_LAST_SEASON = null;
+// Per the commissioner: Adam Hersh and Chico (Cicco's brother) each played only the
+// inaugural 2011 season. From 2012, minafarag (Mina) took Adam's spot and micksitupp
+// (Mickey) took Chico's. Every other current manager has been in the league since 2011.
+const FIRST_SEASON_ONLY = 2011;
 
 const foundingManagers = [
 	{ managerID: MID.c3aquino,     name: 'c3aquino' },
@@ -124,12 +120,7 @@ const buildRoster = (members) =>
 const yahooManagersByYearMap = {};
 for (let y = 2011; y <= 2023; y++) {
 	const members = [...foundingManagers];
-	members.push(y === CHICO_ONLY_SEASON ? chico : mickey);
-	if (y === 2011 || (ADAM_HERSH_LAST_SEASON && y <= ADAM_HERSH_LAST_SEASON)) {
-		members.push(adamHersh);
-	} else if (ADAM_HERSH_LAST_SEASON) {
-		members.push(mina);
-	}
+	members.push(...(y === FIRST_SEASON_ONLY ? [adamHersh, chico] : [mina, mickey]));
 	yahooManagersByYearMap[y] = buildRoster(members);
 }
 
